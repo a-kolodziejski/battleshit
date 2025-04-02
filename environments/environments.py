@@ -143,31 +143,6 @@ class FixedBattleshipEnv(CustomBattleshipEnv):
     # Return values follow Gymnasium convention
     return self._board, {}
 
-if __name__ == '__main__':
-    
-    """Testing Custom Battleship Environment"""
 
-    # env = CustomBattleshipEnv()
-    # state, _ = env.reset()
-    # print(env._board_generated)
-    # print(env._board_generated.reshape(10,10))
-
-    # done = False
-
-    # while True:
-    #     action = np.random.randint(0, 100)
-    #     observation, reward, done, _, info = env.step(action)
-    #     print(f"Action: {action}, reward = {reward}")
-    #     print(observation)
-    #     if done:
-    #         obs, _ = env.reset()
-    #         # print(obs)
-    #         action = np.random.randint(0, 100)
-    #         observation, reward, done, _, info = env.step(action)
-    #         # print(observation)
-    #         action = np.random.randint(0, 100)
-    #         observation, reward, done, _, info = env.step(action)
-    #         # print(observation)
-    #         break
 
 
