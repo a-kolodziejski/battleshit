@@ -37,7 +37,7 @@ class HeatMapPolicy:
   have greater probability of being occupied. 
   Based on  https://towardsdatascience.com/coding-an-intelligent-battleship-agent-bf0064a4b319
   """
-  def __init__(self, board):
+  def __init__(self, board = None):
     """
     Args:
       board (env.board_generated): board filled with ships, needed

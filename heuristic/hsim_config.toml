@@ -1,0 +1,16 @@
+[simulation_1]
+name = "Simulation_1"
+active = false
+num_games = 50000
+strategy = "RandomPolicy"
+environment = "CustomBattleshipEnv"
+save_file = true
+
+[simulation_2]
+name = "Simulation_2"
+active = true
+num_games = 20000
+strategy = "HeatMapPolicy"
+environment = "CustomBattleshipEnv"
+save_file = true
+
