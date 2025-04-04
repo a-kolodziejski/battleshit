@@ -8,7 +8,7 @@ save_file = true
 
 [simulation_2]
 name = "Simulation_2"
-active = true
+active = false
 num_games = 20000
 strategy = "HeatMapPolicy"
 environment = "CustomBattleshipEnv"
