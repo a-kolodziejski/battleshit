@@ -5,6 +5,12 @@ name = "Experiment_1"
 active = true
 environment_type = "gym" # gym or custom. If custom, it means one of Battleship environments
 environment = "CartPole-v1"
+save_model = true
+save_model_path = "models/saved_models/"
+# visualize = true
+# num_animations = 5
+save_graph = true
+save_graph_path = "models/saved_graphs/"
 
 [experiment_1.model]
 model_kind = "SimpleFCN"
@@ -23,4 +29,5 @@ optimizer = "Adam"
 learning_rate = 0.0005
 num_steps = 100000
 num_samples = 1 # preDQNAgentNoBatch updates NN after single intaraction with environment
-num_episodes = 10
+test_freq = 10
+num_trials = 10

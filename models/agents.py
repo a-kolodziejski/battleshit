@@ -2,6 +2,10 @@ import random
 from battleshit.models.neural_nets import *
 import torch
 import torch.nn as nn
+from tqdm import tqdm
+import time
+import matplotlib.pyplot as plt
+
 
 
 class preDQNAgent(nn.Module):
@@ -36,11 +40,28 @@ class preDQNAgent(nn.Module):
     def calculate_loss(self, state, action, reward, next_state, done):
         raise NotImplementedError("preDQN subclasses should implement this method.")
 
-    def train(self, num_steps, test_freq):
+    def train(self, num_steps, test_freq, num_trials):
         raise NotImplementedError("preDQN subclasses should implement this method.")
         
-
     def test(self, num_episodes):
+        raise NotImplementedError("preDQN subclasses should implement this method.")
+    
+    def save_model(self, path):
+        '''
+        Saves the model to the specified path.
+        
+        Args:
+            path (str): The path where the model will be saved.
+        '''
+        torch.save(self.model, path)
+        print(f"Model saved to {path}.")
+
+
+    def plot_performance_graph(self, path):
+        '''
+        Plots and saves the performance graph obtained during training, i.e. it plots
+        the average reward obtained during testing episodes. The graph is saved to the specified path.
+        '''
         raise NotImplementedError("preDQN subclasses should implement this method.")
     
 
@@ -60,13 +81,8 @@ class preDQNAgentNoBatch(preDQNAgent):
             optimizer (torch.optim.Optimizer): The optimizer used for training the model.
         '''
         super().__init__(model, env, bootstrap, epsilon, gamma, optimizer)
-        # Assign attributes
-        # self.model = model
-        # self.env = env
-        # self.bootstrap = bootstrap
-        # self.epsilon = epsilon
-        # self.gamma = gamma
-        # self.optimizer = optimizer
+        # Initialize empty list for storing testing data
+        self.testing_data = []
         
     def select_greedy_action(self, state):
         '''
@@ -138,21 +154,23 @@ class preDQNAgentNoBatch(preDQNAgent):
 
         
 
-    def train(self, num_steps, test_freq, num_episodes):
+    def train(self, num_steps, test_freq, num_trials):
         '''
         Implements training loop for the agent. During training exploratory actions are selected.
         
         Args:
             num_steps (int): The number of intaractions of the agent with the environment.
             test_freq (int): The frequency of testing the agent during training. For example, if   set to 10 it means testing will be done every 10 episodes. If set to 0 it means no testing is performed.
-            num_episodes (int): The number of testing episodes.
+            num_trials (int): The number of testing episodes.
         '''
         # Reset environment
         state, _ = self.env.reset()
+        # Keep track of the number of episodes
+        num_episodes = 0
         # Put model in training mode
         self.model.train()
         # Set up training loop
-        for step in range(num_steps):
+        for step in tqdm(range(num_steps)):
             # Select action
             action = self.select_exploratory_action(state)
             # Take action in environment and collect experience
@@ -169,7 +187,23 @@ class preDQNAgentNoBatch(preDQNAgent):
             loss.backward()
             self.optimizer.step()
             # Update state
-            state = next_state if not done else self.env.reset()[0]
+            if done:
+                # Increment episode count
+                num_episodes += 1
+                # Check if testing is needed
+                if test_freq > 0 and num_episodes % test_freq == 0:
+                    # Test the agent
+                    mean_reward = self.test(num_trials)
+                    # Store testing data
+                    self.testing_data.append((num_episodes, mean_reward))
+                    # Print testing data
+                    print(f"Episode {num_episodes}: Mean reward: {mean_reward:.2f}")
+                # Reset environment 
+                state, _ = self.env.reset() 
+            else:
+                state = next_state
+            
+                
 
     def test(self, num_episodes):
         '''
@@ -180,10 +214,12 @@ class preDQNAgentNoBatch(preDQNAgent):
         '''
         # Put model in evaluation mode
         self.model.eval()
+        # Initialize rewards list
+        episode_rewards = []
         # Switch off gradient tracking
         with torch.no_grad():
             # Loop over episodes
-            for episode in range(num_episodes):
+            for _ in range(num_episodes):
                 # Reset environment
                 state, _ = self.env.reset()
                 done = False
@@ -193,22 +229,38 @@ class preDQNAgentNoBatch(preDQNAgent):
                     action = self.select_greedy_action(state)
                     # Take action in environment and collect experience
                     next_state, reward, terminated, truncated, _ = self.env.step(action)
+                    # Store reward
+                    episode_rewards.append(reward)
                     # Check if episode is done
                     done = terminated or truncated
                     # Update state
-                    state = next_state
+                    state = next_state if not done else self.env.reset()[0]
         # Put model back into training mode
         self.model.train()
+        # Return average reward over all episodes
+        return sum(episode_rewards) / num_episodes
     
-    
 
-# x = torch.tensor([1.,2.,3.])
-# # print(x.unsqueeze(0))
-
-# model = SimpleFCN(input_dim = 3, output_dim = 2, hidden_dims = (4,5), hidden_activation = nn.ReLU(), output_activation = nn.Softmax(dim = -1))
-
-# agent = preDQNAgentNoBatch(model = model, env = "lala", bootstrap = 'qlearning', epsilon = 0.1, gamma = 0.9, optimizer = torch.optim.Adam(model.parameters(), lr = 0.001))
-
-# # print(agent.select_exploratory_action(x))
-# print(agent.calculate_loss(x, 0, 1, x, False))
+    def plot_performance_graph(self, path):
+        '''
+        Plots and saves the performance graph obtained during training, i.e. it plots
+        the average reward obtained during testing episodes. The graph is saved to the specified path.
+        
+        Specifically it plots self.testing_data which is a list of tuples (episode, mean_reward).
+        
+        Args:
+            path (str): The path where the graph will be saved.
+        '''
+        # Unpack testing data
+        episodes, mean_rewards = zip(*self.testing_data)
+        # Plot data
+        plt.figure(figsize=(16, 10))
+        plt.plot(episodes, mean_rewards, marker='o', linestyle='-', color='b')
+        plt.title("Agent Performance During Training")
+        plt.xlabel("Episode")
+        plt.ylabel("Mean Reward")
+        # Save plot to file with the name of the simulation
+        plt.tight_layout()
+        plt.savefig(f"{path}.png")
+        plt.close()
 
