@@ -15,7 +15,7 @@ class SimpleFCN(torch.nn.Module):
             hidden_activation (torch.nn.functional): activation function for hidden layers
             output_activation (torch.nn.functional): activation function for output layer
         '''
-        super().__init__(self)
+        super().__init__()
         # Assign acivations
         self.hidden_activation = hidden_activation
         self.output_activation = output_activation
