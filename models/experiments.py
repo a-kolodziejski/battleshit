@@ -9,7 +9,6 @@ from torch.nn import *
 from torch.optim import *
 import gymnasium as gym
 import random
-import numpy as np
 
 
 if __name__ == "__main__":
@@ -38,6 +37,8 @@ if __name__ == "__main__":
       agent_optimizer = config_file[exp]['agent']["optimizer"]
       agent_learning_rate = config_file[exp]['agent']["learning_rate"]
       agent_num_steps = config_file[exp]['agent']['num_steps']
+      agent_num_samples = config_file[exp]['agent']['num_samples']
+      agent_num_episodes = config_file[exp]['agent']['num_episodes']
       
       # Set up appropriate objects
       # Environment
