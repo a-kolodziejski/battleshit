@@ -1,17 +1,17 @@
+import random
+from battleshit.models.neural_nets import *
 import torch
 import torch.nn as nn
-import random
-import numpy as np
-from battleshit.models.neural_nets import *
 
 class preDQNAgent(nn.Module):
     '''
     A simple preDQN (i.e. does not use replay buffer) agent with a feedforward neural network architecture.
     '''
-    def __init__(self, model, bootstrap, epsilon, gamma, optimizer):
+    def __init__(self, model, env, bootstrap, epsilon, gamma, optimizer):
         '''
         Args:
             model (torch.nn.Module): The neural network model used by the agent.
+            env (gym.Env or custom): The environment in which the agent operates.
             bootstrap (str): either 'sarsa' or 'qlearning', indicating the type of bootstrapping used.
             epsilon (float): The exploration rate for the epsilon-greedy policy.
             gamma (float): The discount factor for future rewards.
@@ -20,6 +20,7 @@ class preDQNAgent(nn.Module):
         super().__init__()
         # Assign attributes
         self.model = model
+        self.env = env
         self.bootstrap = bootstrap
         self.epsilon = epsilon
         self.gamma = gamma
@@ -35,9 +36,6 @@ class preDQNAgent(nn.Module):
         Returns:
             action (int): The action with the highest Q-value.
         '''
-        # Add batch dimension to the state if it is not already there
-        if len(state.shape) == 1:
-            state = state.unsqueeze(0)
         # Switch off gradient tracking
         with torch.no_grad():
             # Get the Q-values for the current state
@@ -53,9 +51,6 @@ class preDQNAgent(nn.Module):
         Args:
             state (torch.Tensor): The current state of the environment.
         '''
-        # Add batch dimension to the state if it is not already there
-        if len(state.shape) == 1:
-            state = state.unsqueeze(0)
         # Switch off gradient tracking
         with torch.no_grad():
             # Get the Q-values for the current state
@@ -78,9 +73,6 @@ class preDQNAgent(nn.Module):
         Returns:
             loss (torch.Tensor): The calculated loss.
         '''
-        # Add batch dimension to the next state if it is not already there
-        if len(next_state.shape) == 1:
-            next_state = next_state.unsqueeze(0)
         # Calculate target
         if self.bootstrap == 'sarsa':
             # Select next action
@@ -111,7 +103,27 @@ class preDQNAgent(nn.Module):
         Args:
             num_steps (int): The number of intaractions of the agent with the environment.
         '''
-        pass
+        # Reset environment
+        state, _ = self.env.reset()
+        # Set up training loop
+        for step in range(num_steps):
+            # Select action
+            action = self.select_exploratory_action(state)
+            # Take action in environment and collect experience
+            next_state, reward, terminated, truncated, _ = self.env.step(action)
+            # Check if episode is done
+            done = terminated or truncated
+            # Convert state and next_state to tensors
+            state_tensor = torch.tensor(state, dtype = torch.float32).unsqueeze(0)
+            next_state_tensor = torch.tensor(next_state, dtype = torch.float32).unsqueeze(0)
+            # Calculate loss
+            loss = self.calculate_loss(state_tensor, action, reward, next_state_tensor, done)
+            # Backpropagation
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+            # Update state
+            state = next_state if not done else self.env.reset()[0]
 
     def test(self, num_episodes):
         '''
@@ -124,12 +136,13 @@ class preDQNAgent(nn.Module):
     
     
 
-x = torch.tensor([1.,2.,3.])
-# print(x.unsqueeze(0))
+# x = torch.tensor([1.,2.,3.])
+# # print(x.unsqueeze(0))
 
-model = SimpleFCN(input_dim = 3, output_dim = 2, hidden_dims = (4,5), hidden_activation = nn.ReLU(), output_activation = nn.Softmax(dim = -1))
+# model = SimpleFCN(input_dim = 3, output_dim = 2, hidden_dims = (4,5), hidden_activation = nn.ReLU(), output_activation = nn.Softmax(dim = -1))
 
-agent = preDQNAgent(model = model, bootstrap = 'qlearning', epsilon = 0.1, gamma = 0.9, optimizer = torch.optim.Adam(model.parameters(), lr = 0.001))
+# agent = preDQNAgent(model = model, bootstrap = 'qlearning', epsilon = 0.1, gamma = 0.9, optimizer = torch.optim.Adam(model.parameters(), lr = 0.001))
 
-# print(agent.select_exploratory_action(x))
-print(agent.calculate_loss(x, 0, 1, x, False))
+# # print(agent.select_exploratory_action(x))
+# print(agent.calculate_loss(x, 0, 1, x, False))
+

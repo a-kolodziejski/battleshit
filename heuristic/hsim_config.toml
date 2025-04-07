@@ -1,3 +1,5 @@
+# File read by simulations.py to perform the simulations with given settings
+
 [simulation_1]
 name = "Simulation_1"
 active = false
