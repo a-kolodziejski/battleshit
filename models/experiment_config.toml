@@ -1,14 +1,14 @@
 # Configuration file for various experiments. It is read by experiments.py to perform the experiments specified by given paramteres.
 
+#################################################################################
+
 [experiment_1]
 name = "Experiment_1"
-active = true
+active = false
 environment_type = "gym" # gym or custom. If custom, it means one of Battleship environments
 environment = "CartPole-v1"
 save_model = true
 save_model_path = "models/saved_models/"
-# visualize = true
-# num_animations = 5
 save_graph = true
 save_graph_path = "models/saved_graphs/"
 
@@ -28,6 +28,38 @@ gamma = 0.99
 optimizer = "Adam"
 learning_rate = 0.0005
 num_steps = 100000
+num_samples = 1 # preDQNAgentNoBatch updates NN after single intaraction with environment
+test_freq = 10
+num_trials = 10
+
+#########################################################################
+
+[experiment_2]
+name = "Experiment_2"
+active = true
+environment_type = "gym" # gym or custom. If custom, it means one of Battleship environments
+environment = "LunarLander-v3"
+save_model = true
+save_model_path = "models/saved_models/"
+save_graph = true
+save_graph_path = "models/saved_graphs/"
+
+[experiment_2.model]
+model_kind = "SimpleFCN"
+input_dim = 8
+output_dim = 4
+hidden_dims = [512, 128]
+hidden_activation = "ReLU"
+output_activation = "Identity"
+
+[experiment_2.agent]
+agent_kind = "preDQNAgentNoBatch"
+bootstrap = "qlearning"
+epsilon = 0.5
+gamma = 0.99
+optimizer = "Adam"
+learning_rate = 0.0005
+num_steps = 300000
 num_samples = 1 # preDQNAgentNoBatch updates NN after single intaraction with environment
 test_freq = 10
 num_trials = 10

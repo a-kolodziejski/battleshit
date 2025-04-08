@@ -39,7 +39,8 @@ def visualize(env, model_path, num_animations):
                 state = next_state if not done else env.reset()[0]
 
 
-# Load environment
-env = gym.make("CartPole-v1", render_mode = 'human')
-# Run visualization
-visualize(env, "models/saved_models/experiment_1.pt", 5)
+if __name__ == "__main__":
+    # Load environment
+    env = gym.make("LunarLander-v3", render_mode = 'human')
+    # Run visualization
+    visualize(env, "models/saved_models/experiment_2.pt", 5)
