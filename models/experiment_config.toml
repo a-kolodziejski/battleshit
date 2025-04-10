@@ -20,6 +20,8 @@ hidden_dims = [512, 128]
 hidden_activation = "ReLU"
 output_activation = "Identity"
 
+[experiment_1.buffer]
+
 [experiment_1.agent]
 agent_kind = "preDQNAgentNoBatch"
 bootstrap = "qlearning"
@@ -36,7 +38,7 @@ num_trials = 10
 
 [experiment_2]
 name = "Experiment_2"
-active = true
+active = false
 environment_type = "gym" # gym or custom. If custom, it means one of Battleship environments
 environment = "LunarLander-v3"
 save_model = true
@@ -52,6 +54,8 @@ hidden_dims = [512, 128]
 hidden_activation = "ReLU"
 output_activation = "Identity"
 
+[experiment_2.buffer]
+
 [experiment_2.agent]
 agent_kind = "preDQNAgentNoBatch"
 bootstrap = "qlearning"
@@ -61,5 +65,46 @@ optimizer = "Adam"
 learning_rate = 0.0005
 num_steps = 300000
 num_samples = 1 # preDQNAgentNoBatch updates NN after single intaraction with environment
+test_freq = 10
+num_trials = 10
+
+
+############################################################################
+[experiment_3]
+name = "Experiment_3"
+active = true
+environment_type = "gym" # gym or custom. If custom, it means one of Battleship environments
+environment = "CartPole-v1"
+save_model = true
+save_model_path = "models/saved_models/"
+save_graph = true
+save_graph_path = "models/saved_graphs/"
+
+[experiment_3.model]
+model_kind = "SimpleFCN"
+input_dim = 4
+output_dim = 2
+hidden_dims = [512, 128]
+hidden_activation = "ReLU"
+output_activation = "Identity"
+
+[experiment_3.buffer]
+buffer_kind = "SimpleBuffer"
+buffer_size = 10000
+
+
+[experiment_3.agent]
+agent_kind = "DQNAgent"
+init_epsilon = 0.5
+end_epsilon = 0.01
+decay_ratio = 0.1
+tau = 0.01
+gamma = 0.99
+optimizer = "Adam"
+learning_rate = 0.0005
+num_steps = 100000
+batch_size = 32
+steps_in_env = 10
+update_freq = 10
 test_freq = 10
 num_trials = 10

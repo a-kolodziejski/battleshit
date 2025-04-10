@@ -29,23 +29,33 @@ if __name__ == "__main__":
             env_type = config_file[exp]["environment_type"] 
             env_name = config_file[exp]["environment"]
             # Model-specific parameters
-            model_kind = config_file[exp]['model']["model_kind"]
-            model_input_dim = config_file[exp]['model']["input_dim"]
-            model_output_dim = config_file[exp]['model']["output_dim"]
-            model_hidden_dims = config_file[exp]['model']["hidden_dims"]
-            model_hidden_activation = config_file[exp]['model']["hidden_activation"]
-            model_output_activation = config_file[exp]['model']["output_activation"]
+            model_kind = config_file[exp]['model'].get("model_kind", None)
+            model_input_dim = config_file[exp]['model'].get("input_dim", None)
+            model_output_dim = config_file[exp]['model'].get("output_dim", None)
+            model_hidden_dims = config_file[exp]['model'].get("hidden_dims", None)
+            model_hidden_activation = config_file[exp]['model'].get("hidden_activation", None)
+            model_output_activation = config_file[exp]['model'].get("output_activation", None)
+            # Buffer-specific parameters
+            buffer_kind = config_file[exp]['buffer'].get("buffer_kind", None)
+            buffer_size = config_file[exp]['buffer'].get("buffer_size", None)
             # Agent-specific parameters
-            agent_kind = config_file[exp]['agent']["agent_kind"]
-            agent_bootstrap = config_file[exp]['agent']["bootstrap"]
-            agent_epsilon = config_file[exp]['agent']["epsilon"]
-            agent_gamma = config_file[exp]['agent']["gamma"]
-            agent_optimizer = config_file[exp]['agent']["optimizer"]
-            agent_learning_rate = config_file[exp]['agent']["learning_rate"]
-            agent_num_steps = config_file[exp]['agent']['num_steps']
-            agent_num_samples = config_file[exp]['agent']['num_samples']
-            agent_num_trials = config_file[exp]['agent']['num_trials']
-            agent_test_freq = config_file[exp]['agent']['test_freq']
+            agent_kind = config_file[exp]['agent'].get("agent_kind", None)
+            agent_bootstrap = config_file[exp]['agent'].get("bootstrap", None)
+            agent_epsilon = config_file[exp]['agent'].get("epsilon", None)
+            agent_init_epsilon = config_file[exp]['agent'].get("init_epsilon", None)
+            agent_end_epsilon = config_file[exp]['agent'].get("end_epsilon", None)
+            agent_decay_ration = config_file[exp]['agent'].get("decay_ratio", None)
+            agent_tau = config_file[exp]['agent'].get("tau", None)
+            agent_gamma = config_file[exp]['agent'].get("gamma", None)
+            agent_optimizer = config_file[exp]['agent'].get("optimizer", None)
+            agent_learning_rate = config_file[exp]['agent'].get("learning_rate", None)
+            agent_num_steps = config_file[exp]['agent'].get('num_steps', None)
+            agent_batch_size = config_file[exp]['agent'].get('batch_size', None)
+            agent_steps_in_env = config_file[exp]['agent'].get('steps_in_env', None)
+            agent_update_freq = config_file[exp]['agent'].get('update_freq', None)
+            agent_num_samples = config_file[exp]['agent'].get('num_samples', None)
+            agent_num_trials = config_file[exp]['agent'].get('num_trials', None)
+            agent_test_freq = config_file[exp]['agent'].get('test_freq', None)
         
             # Set up appropriate objects
             # Environment
@@ -60,21 +70,50 @@ if __name__ == "__main__":
                                         model_hidden_dims,
                                         globals()[model_hidden_activation](),
                                         globals()[model_output_activation]())
+            # Buffer
+            if buffer_kind:
+                buffer = globals()[buffer_kind](buffer_size)
+            
             # Agent
-            agent = globals()[agent_kind](model,
+            if agent_kind == "preDQNAgentNoBatch":
+                agent = globals()[agent_kind](model,
                                         env,
                                         agent_bootstrap,
                                         agent_epsilon, 
                                         agent_gamma,
                                         globals()[agent_optimizer](model.parameters(),              agent_learning_rate))
-            # Train agent
-            agent.train(agent_num_steps, agent_test_freq, agent_num_trials)
-            # Save model
-            if save_model:
-                agent.save_model(save_model_path + f"{exp}.pt")
-            # Plot performance graph during training
-            if save_graph:
-                if not os.path.exists(save_graph_path):
-                    os.makedirs(save_graph_path)
-                agent.plot_performance_graph(save_graph_path + f"{exp}.png")
+                # Train agent
+                agent.train(agent_num_steps, agent_test_freq, agent_num_trials)
+                # Save model
+                if save_model:
+                    agent.save_model(save_model_path + f"{exp}.pt")
+                # Plot performance graph during training
+                if save_graph:
+                    if not os.path.exists(save_graph_path):
+                        os.makedirs(save_graph_path)
+                    agent.plot_performance_graph(save_graph_path + f"{exp}.png")
+            
+            elif agent_kind == "DQNAgent":
+                # Create target model for DQN agent
+                target_model = globals()[model_kind](model_input_dim,
+                                        model_output_dim,
+                                        model_hidden_dims,
+                                        globals()[model_hidden_activation](),
+                                        globals()[model_output_activation]())
+                # Initialize DQN agent
+                agent = globals()[agent_kind](model, target_model, env, buffer,
+                                              agent_init_epsilon, agent_end_epsilon,
+                                              agent_decay_ration, agent_tau, agent_gamma,
+                                              globals()[agent_optimizer](model.parameters(), agent_learning_rate))
+                # Train agent
+                agent.train(agent_num_steps, agent_batch_size, agent_steps_in_env,  agent_update_freq, agent_test_freq, agent_num_trials)
+                
+                # Save model
+                if save_model:
+                    agent.save_model(save_model_path + f"{exp}.pt")
+                # Plot performance graph during training
+                if save_graph:
+                    if not os.path.exists(save_graph_path):
+                        os.makedirs(save_graph_path)
+                    agent.plot_performance_graph(save_graph_path + f"{exp}.png")
       
