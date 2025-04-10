@@ -16,7 +16,9 @@ class SimpleFCN(torch.nn.Module):
             output_activation (torch.nn.functional): activation function for output layer
         '''
         super().__init__()
-        # Assign acivations
+        # Assign attributes and acivations
+        self.input_dim = input_dim
+        self.output_dim = output_dim
         self.hidden_activation = hidden_activation
         self.output_activation = output_activation
         # Initialize first linear layer

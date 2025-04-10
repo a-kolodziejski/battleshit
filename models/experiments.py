@@ -4,6 +4,7 @@ Perform experiments based on settings in experiments_config.toml file
 from battleshit.models.neural_nets import *
 from battleshit.models.agents import *
 from battleshit.environments.environments import *
+from battleshit.buffers.buffers import *
 import torch
 from torch.nn import *
 from torch.optim import *
@@ -38,6 +39,7 @@ if __name__ == "__main__":
             # Buffer-specific parameters
             buffer_kind = config_file[exp]['buffer'].get("buffer_kind", None)
             buffer_size = config_file[exp]['buffer'].get("buffer_size", None)
+            buffer_min_capacity = config_file[exp]['buffer'].get("buffer_min_capacity", None)
             # Agent-specific parameters
             agent_kind = config_file[exp]['agent'].get("agent_kind", None)
             agent_bootstrap = config_file[exp]['agent'].get("bootstrap", None)
@@ -72,7 +74,7 @@ if __name__ == "__main__":
                                         globals()[model_output_activation]())
             # Buffer
             if buffer_kind:
-                buffer = globals()[buffer_kind](buffer_size)
+                buffer = globals()[buffer_kind](buffer_size, buffer_min_capacity)
             
             # Agent
             if agent_kind == "preDQNAgentNoBatch":
@@ -103,8 +105,8 @@ if __name__ == "__main__":
                 # Initialize DQN agent
                 agent = globals()[agent_kind](model, target_model, env, buffer,
                                               agent_init_epsilon, agent_end_epsilon,
-                                              agent_decay_ration, agent_tau, agent_gamma,
-                                              globals()[agent_optimizer](model.parameters(), agent_learning_rate))
+                                              agent_decay_ration, agent_gamma,
+                                              globals()[agent_optimizer](model.parameters(), agent_learning_rate), agent_tau)
                 # Train agent
                 agent.train(agent_num_steps, agent_batch_size, agent_steps_in_env,  agent_update_freq, agent_test_freq, agent_num_trials)
                 

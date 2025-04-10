@@ -7,14 +7,16 @@ class SimpleBuffer:
     A simple buffer implementation using deque from collections.
     This buffer has a maximum capacity and will overwrite the oldest items when full.
     '''
-    def __init__(self, max_capacity):
+    def __init__(self, max_capacity, min_capacity):
         '''
         Initialize the buffer with a maximum capacity.
         
         Args:
             max_capacity (int): The maximum number of experience tuples the buffer can hold.
+            min_capacity (int): The minimum number of experience tuples the buffer should hold   before sampling.
         '''
         self.max_capacity = max_capacity
+        self.min_capacity = min_capacity
         # Initialize a deque with a maximum length to act as the buffer.
         self.buffer = deque(maxlen=max_capacity)
 
@@ -68,3 +70,15 @@ class SimpleBuffer:
         return len(self.buffer)
     
     
+# # x = deque(maxlen=5)
+# buf = SimpleBuffer(max_capacity=5)
+# buf.store(([1,2,3],1,2,[4,5,6],0))
+# buf.store(([10,20,30],10,20,[40,50,60],0))
+# buf.store(([1.5,2.5,3.5],3,-4,[4.5,5.5,6.5],1))
+
+# states, actions, rewards, next_states, dones = buf.sample(2)
+# print("States:", states)
+# print("Actions:", actions)
+# print("Rewards:", rewards)
+# print("Next States:", next_states)
+# print("Dones:", dones)

@@ -91,13 +91,14 @@ output_activation = "Identity"
 [experiment_3.buffer]
 buffer_kind = "SimpleBuffer"
 buffer_size = 10000
+buffer_min_capacity = 320
 
 
 [experiment_3.agent]
 agent_kind = "DQNAgent"
-init_epsilon = 0.5
-end_epsilon = 0.01
-decay_ratio = 0.1
+init_epsilon = 1
+end_epsilon = 0.3
+decay_ratio = 5000
 tau = 0.01
 gamma = 0.99
 optimizer = "Adam"
@@ -105,6 +106,6 @@ learning_rate = 0.0005
 num_steps = 100000
 batch_size = 32
 steps_in_env = 10
-update_freq = 10
+update_freq = 15
 test_freq = 10
 num_trials = 10

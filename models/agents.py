@@ -387,9 +387,9 @@ class DQNAgent(nn.Module):
         Updates the target network using soft update.
         '''
         # Get the parameters of the target network
-        target_net_state_dict = self.target_model.parameters()
+        target_net_state_dict = self.target_model.state_dict()
         # Get the parameters of the online model
-        online_net_state_dict = self.online_model.parameters()
+        online_net_state_dict = self.online_model.state_dict()
         # Iterate over all parameters of the target network
         for key in target_net_state_dict:
             # Update the parameters of the target network using soft update
@@ -433,7 +433,7 @@ class DQNAgent(nn.Module):
             num_trials (int): The number of testing episodes.
         '''
         # Prepopulate buffer with random experiences
-        self._prepopulate_buffer(batch_size)
+        self._prepopulate_buffer(self.buffer.min_capacity)
         # Reset environment
         state, _ = self.env.reset()
         # Keep track of the number of episodes
