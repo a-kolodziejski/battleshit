@@ -396,18 +396,44 @@ class DQNAgent(nn.Module):
             target_net_state_dict[key] = online_net_state_dict[key] * self.tau + target_net_state_dict[key] * (1 - self.tau)
         # Load the updated parameters into the target network
         self.target_model.load_state_dict(target_net_state_dict)
+    
+    def _prepopulate_buffer(self, size):
+        '''
+        Prepopulates the buffer with random experiences.
+        
+        Args:
+            size (int): The number of experiences to prepopulate the buffer with.
+        '''
+        # Reset environment
+        state, _ = self.env.reset()
+        # Loop until buffer is full
+        while len(self.buffer) < size:
+            # Select action
+            action = random.randint(0, self.online_model.output_dim-1)
+            # Take action in environment and collect experience
+            next_state, reward, terminated, truncated, _ = self.env.step(action)
+            # Check if episode is done
+            done = terminated or truncated
+            # Store experience in buffer
+            self.buffer.store((state, action, reward, next_state, done))
+            # Update state
+            state = next_state if not done else self.env.reset()[0]
         
 
-    def train(self, num_steps, update_freq, test_freq, num_trials):
+    def train(self, num_steps, batch_size, steps_in_env, update_freq, test_freq, num_trials):
         '''
         Implements training loop for the agent. During training exploratory actions are selected.
         
         Args:
             num_steps (int): The number of intaractions of the agent with the environment.
+            batch_size (int): The size of the batch sampled from the buffer.
+            steps_in_env (int): The number of steps taken in the environment before sampling a batch from the buffer.
             update_freq (int): The frequency of updating the target network. For example, if set to 10 it means the target network will be updated every 10 steps.
             test_freq (int): The frequency of testing the agent during training. For example, if   set to 10 it means testing will be done every 10 episodes. If set to 0 it means no testing is performed.
             num_trials (int): The number of testing episodes.
         '''
+        # Prepopulate buffer with random experiences
+        self._prepopulate_buffer(batch_size)
         # Reset environment
         state, _ = self.env.reset()
         # Keep track of the number of episodes
@@ -415,22 +441,27 @@ class DQNAgent(nn.Module):
         # Put model in training mode
         self.online_model.train()
         # Set up training loop
-        for step in tqdm(range(num_steps)):
+        for step in tqdm(range(1, num_steps)):
+            # Sample a batch of experiences from the buffer
+            if step % steps_in_env == 0:
+                # Calculate loss
+                loss = self.calculate_loss(batch_size)
+                # Backpropagation
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+            # Update target network
+            if step % update_freq == 0:
+                self._update_target_network()
+            # Act for steps_in_env number of steps before sampling a batch from the buffer
             # Select action
             action = self.select_exploratory_action(state)
             # Take action in environment and collect experience
             next_state, reward, terminated, truncated, _ = self.env.step(action)
             # Check if episode is done
             done = terminated or truncated
-            # Convert state and next_state to tensors
-            state_tensor = torch.tensor(state, dtype = torch.float32).unsqueeze(0)
-            next_state_tensor = torch.tensor(next_state, dtype = torch.float32).unsqueeze(0)
-            # Calculate loss
-            loss = self.calculate_loss(state_tensor, action, reward, next_state_tensor, done)
-            # Backpropagation
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+            # Store experience in buffer
+            self.buffer.store((state, action, reward, next_state, done))
             # Update state
             if done:
                 # Increment episode count
