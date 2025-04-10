@@ -49,10 +49,10 @@ class SimpleBuffer:
         states, actions, rewards, next_states, dones = zip(*batch)
         # Convert the lists to tensors of appropriate shape.
         states = torch.tensor(states, dtype=torch.float32)
-        actions = torch.tensor(actions, dtype=torch.long).unsqueeze(1)
-        rewards = torch.tensor(rewards, dtype=torch.float32).unsqueeze(1)
+        actions = torch.tensor(actions, dtype=torch.long)
+        rewards = torch.tensor(rewards, dtype=torch.float32)
         next_states = torch.tensor(next_states, dtype=torch.float32)
-        dones = torch.tensor(dones, dtype=torch.float32).unsqueeze(1)
+        dones = torch.tensor(dones, dtype=torch.float32)
         # Return collected tensors as a tuple.
         return states, actions, rewards, next_states, dones
 
