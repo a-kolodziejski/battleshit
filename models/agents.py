@@ -549,12 +549,46 @@ class DQNAgent(nn.Module):
         plt.savefig(f"{path}.png")
         plt.close()
         
-        
+
+
+#####################################################################################
+#####################################################################################
+
+# Agent class for Double DQN agent
+
+#####################################################################################
+#####################################################################################
+
+
+class DoubleDQNAgent(DQNAgent):
+    '''
+    A Double DQN agent class. It inherits from the DQNAgent class.
+    '''
+    def __init__(self, online_model, target_model, env, buffer, 
+                 init_epsilon, end_epsilon, decay_ratio, gamma, optimizer, tau):
+        '''
+        Args:
+            online_model (torch.nn.Module): The neural network model used by the agent.
+            target_model (torch.nn.Module): The target network used for bootstrapping.
+            buffer (battleshit.buffers): The experience replay buffer used for storing experiences.
+            env (gym.Env or custom): The environment in which the agent operates.
+            init_epsilon (float): The initial value of exploration rate for the epsilon-greedy policy.
+            end_epsilon (float): The final value of exploration rate for the epsilon-greedy policy.
+            decay_ratio (float): The ratio for decaying epsilon.
+            gamma (float): The discount factor for future rewards.
+            optimizer (torch.optim.Optimizer): The optimizer used for training the model.
+            tau (float): The soft update parameter for the target network.
+        '''
+        super().__init__(online_model, target_model, env, buffer, 
+                         init_epsilon, end_epsilon, decay_ratio, gamma, optimizer, tau)
+     
+
+
 online_model = SimpleFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), hidden_activation = torch.nn.ReLU(), output_activation = torch.nn.Identity())    
 target_model = SimpleFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), hidden_activation = torch.nn.ReLU(), output_activation = torch.nn.Identity()) 
 
 
-# agent = DQNAgent(
+# agent = DoubleDQNAgent(
 #     online_model = online_model, 
 #     target_model = target_model, 
 #     env = None, # Replace with your environment
@@ -563,8 +597,10 @@ target_model = SimpleFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), 
 #     end_epsilon = 0.1,
 #     decay_ratio = 10000,
 #     gamma = 0.99,
-#     optimizer = torch.optim.Adam(online_model.parameters(), lr=0.001)
+#     optimizer = torch.optim.Adam(online_model.parameters(), lr=0.001),
+#     tau = 0.9
 # )
+
 
 # states = torch.tensor([[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]], dtype=torch.float32)
 # dones = torch.tensor([[0.0], [1.0]], dtype=torch.float32).squeeze()
