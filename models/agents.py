@@ -319,6 +319,8 @@ class DQNAgent(nn.Module):
         self.testing_data = []
         # Initialize time parameter (needed for epsilon decay)
         self._time = 0
+        # Make the two networks initially equal (same weights)
+        self.target_model.load_state_dict(self.online_model.state_dict())
         
     def select_greedy_action(self, state):
         '''
