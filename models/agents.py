@@ -378,7 +378,7 @@ class DQNAgent(nn.Module):
         # Get the Q-value for the current state and action
         current_q_values = self.online_model(states)[range(batch_size), actions]
         # Calculate mean loss over the batch
-        loss = torch.mean((rewards + self.gamma * targets - current_q_values)**2)
+        loss = torch.mean((targets - current_q_values)**2)
         # Return loss
         return loss
 
@@ -581,6 +581,29 @@ class DoubleDQNAgent(DQNAgent):
         '''
         super().__init__(online_model, target_model, env, buffer, 
                          init_epsilon, end_epsilon, decay_ratio, gamma, optimizer, tau)
+    def calculate_loss(self, batch_size):
+        '''
+        Calculates the loss for the batch of experiences sampled from the buffer.
+        
+        Args:
+            batch_size (int): The size of the batch sampled from the buffer.
+        
+        Returns:
+            loss (torch.Tensor): The calculated loss.
+        '''
+        # Sample a batch of experiences from the buffer
+        states, actions, rewards, next_states, dones = self.buffer.sample(batch_size)
+        # Choose actions online model thinks are best for next states
+        next_best_actions = torch.argmax(self.online_model(next_states).detach(), dim = 1)
+        # Let target model score those next_best_actions
+        targets = rewards + self.gamma * self.target_model(next_states).detach()[range(batch_size), next_best_actions] * (1 - dones)
+            
+        # Get the Q-value for the current state and action
+        current_q_values = self.online_model(states)[range(batch_size), actions]
+        # Calculate mean loss over the batch
+        loss = torch.mean((targets - current_q_values)**2)
+        # Return loss
+        return loss
      
 
 
@@ -612,3 +635,9 @@ target_model = SimpleFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), 
 # q_values = online_model(states)
 # print(q_values)
 # print(q_values[range(len(q_values)), actions])
+
+# print(online_model(states))
+# print(torch.argmax(online_model(states).detach(), dim = 1))
+# next_best_actions = torch.argmax(online_model(states).detach(), dim = 1)
+
+# print(target_model(states).detach()[range(len(states)), next_best_actions])

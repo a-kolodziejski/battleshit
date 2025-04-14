@@ -95,7 +95,7 @@ if __name__ == "__main__":
                         os.makedirs(save_graph_path)
                     agent.plot_performance_graph(save_graph_path + f"{exp}.png")
             
-            elif agent_kind == "DQNAgent":
+            elif agent_kind == "DQNAgent" or agent_kind == "DoubleDQNAgent":
                 # Create target model for DQN agent
                 target_model = globals()[model_kind](model_input_dim,
                                         model_output_dim,

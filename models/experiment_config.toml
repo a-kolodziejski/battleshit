@@ -113,7 +113,7 @@ num_trials = 10
 ############################################################################
 [experiment_4]
 name = "Experiment_4"
-active = true
+active = false
 environment_type = "gym" # gym or custom. If custom, it means one of Battleship environments
 environment = "CartPole-v1"
 save_model = true
@@ -147,6 +147,47 @@ learning_rate = 0.0005
 num_steps = 100000
 batch_size = 64
 steps_in_env = 10
+update_freq = 15
+test_freq = 10
+num_trials = 10
+
+############################################################################
+[experiment_5]
+name = "Experiment_5"
+active = false
+environment_type = "gym" # gym or custom. If custom, it means one of Battleship environments
+environment = "LunarLander-v3"
+save_model = true
+save_model_path = "models/saved_models/"
+save_graph = true
+save_graph_path = "models/saved_graphs/"
+
+[experiment_5.model]
+model_kind = "SimpleFCN"
+input_dim = 8
+output_dim = 4
+hidden_dims = [512, 128]
+hidden_activation = "ReLU"
+output_activation = "Identity"
+
+[experiment_5.buffer]
+buffer_kind = "SimpleBuffer"
+buffer_size = 20000
+buffer_min_capacity = 320
+
+
+[experiment_5.agent]
+agent_kind = "DoubleDQNAgent"
+init_epsilon = 1
+end_epsilon = 0.3
+decay_ratio = 10000
+tau = 0.9
+gamma = 0.99
+optimizer = "Adam"
+learning_rate = 0.0005
+num_steps = 300000
+batch_size = 64
+steps_in_env = 5
 update_freq = 15
 test_freq = 10
 num_trials = 10

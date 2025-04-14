@@ -43,4 +43,4 @@ if __name__ == "__main__":
     # Load environment
     env = gym.make("LunarLander-v3", render_mode = 'human')
     # Run visualization
-    visualize(env, "models/saved_models/experiment_2.pt", 5)
+    visualize(env, "models/saved_models/experiment_5.pt", 5)
