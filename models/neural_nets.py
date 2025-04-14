@@ -105,15 +105,15 @@ class DuellingFCN(torch.nn.Module):
         if inputs.ndim == 1:
             inputs = inputs.unsqueeze(0)
         # Pass input through first linear layer
-        inputs = self.activation(self.input_linear(inputs))
+        inputs = self.hidden_activation(self.input_linear(inputs))
         # Pass input through list of hidden layers
         for hidden_layer in self.hidden_layers:
-            inputs = self.activation(hidden_layer(inputs))
+            inputs = self.hidden_activation(hidden_layer(inputs))
         # Pass data through last linear layer - separately for V track and adbantage track
         # For V
-        outputs_v = self.output_v(inputs)
+        outputs_v = self.output_activation(self.output_v(inputs))
         # For A
-        outputs_a = self.output_a(inputs)
+        outputs_a = self.output_activation(self.output_a(inputs))
         # Combining V and A function (Q = V + A - average(A))
         outputs = outputs_v + outputs_a - torch.mean(outputs_a, dim = 1, keepdim = True)
         return outputs
