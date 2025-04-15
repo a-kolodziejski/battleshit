@@ -196,7 +196,7 @@ num_trials = 10
 ############################################################################
 [experiment_6]
 name = "Experiment_6"
-active = true
+active = false
 environment_type = "gym" # gym or custom. If custom, it means one of Battleship environments
 environment = "LunarLander-v3"
 save_model = true

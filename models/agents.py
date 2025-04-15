@@ -609,8 +609,8 @@ class DoubleDQNAgent(DQNAgent):
      
 
 
-online_model = SimpleFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), hidden_activation = torch.nn.ReLU(), output_activation = torch.nn.Identity())    
-target_model = SimpleFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), hidden_activation = torch.nn.ReLU(), output_activation = torch.nn.Identity()) 
+online_model = DuellingFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), hidden_activation = torch.nn.ReLU(), output_activation = torch.nn.Identity())    
+target_model = DuellingFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), hidden_activation = torch.nn.ReLU(), output_activation = torch.nn.Identity()) 
 
 
 # agent = DoubleDQNAgent(
@@ -627,7 +627,7 @@ target_model = SimpleFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), 
 # )
 
 
-# states = torch.tensor([[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]], dtype=torch.float32)
+states = torch.tensor([[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]], dtype=torch.float32)
 # dones = torch.tensor([[0.0], [1.0]], dtype=torch.float32).squeeze()
 # rewards = torch.tensor([[1.0], [2.0]], dtype=torch.float32).squeeze()
 # actions = torch.tensor([[0], [1]], dtype=torch.long).squeeze()
@@ -643,3 +643,4 @@ target_model = SimpleFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), 
 # next_best_actions = torch.argmax(online_model(states).detach(), dim = 1)
 
 # print(target_model(states).detach()[range(len(states)), next_best_actions])
+# print(online_model(states))
