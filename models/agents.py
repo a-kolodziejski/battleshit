@@ -583,6 +583,7 @@ class DoubleDQNAgent(DQNAgent):
         '''
         super().__init__(online_model, target_model, env, buffer, 
                          init_epsilon, end_epsilon, decay_ratio, gamma, optimizer, tau)
+        
     def calculate_loss(self, batch_size):
         '''
         Calculates the loss for the batch of experiences sampled from the buffer.
