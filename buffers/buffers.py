@@ -1,6 +1,15 @@
 from collections import deque
 import random
 import torch
+import numpy as np
+
+#####################################################################################
+#####################################################################################
+
+# SimpleBuffer - samples uniformly from the buffer.
+
+#####################################################################################
+#####################################################################################
 
 class SimpleBuffer:
     '''
@@ -69,7 +78,57 @@ class SimpleBuffer:
         Returns the current size of the buffer.'''
         return len(self.buffer)
     
+
+#####################################################################################
+#####################################################################################
+
+# PrioritizedReplayBuffer - samples from the buffer based on priority.
+
+#####################################################################################
+#####################################################################################
+
+class PrioritizedReplayBuffer:
+    '''
+    A prioritized replay buffer that samples experiences based on their priority.
+    Priorities are calculated using the TD errors.
+    Proportional or rank-based sampling is used to select experiences
+    '''
+    def __init__(self, max_capacity, min_capacity, alpha, beta, beta_increment_per_sampling, epsilon, rank_based=False):
+        '''
+        Initialize the buffer with a maximum capacity.
+        
+        Args:
+            max_capacity (int): The maximum number of experience tuples the buffer can hold.
+            min_capacity (int): The minimum number of experience tuples the buffer should hold before sampling.
+            alpha (float): The parameter for prioritization. 0 means no prioritization, 1 means full prioritization.
+            beta (float): The initial value for importance sampling. 0 means no correction, 1 means full correction.
+            beta_increment_per_sampling (float): The increment for beta per sampling.
+            epsilon (float): A small value to avoid zero priority.
+            rank_based (bool): If True, uses rank-based sampling instead of proportional sampling.
+        '''
+        # Initialize attributes
+        self.max_capacity = max_capacity
+        self.min_capacity = min_capacity
+        self.alpha = alpha
+        self.beta = beta
+        self.beta_increment_per_sampling = beta_increment_per_sampling
+        self.epsilon = epsilon
+        self.rank_based = rank_based
+        # Initialize a deque with a maximum length to act as the buffer.
+        self.buffer = deque(maxlen=max_capacity)
+        # Initialize a list to store priorities for each experience in the buffer.
+        self.priorities = np.zeros(max_capacity, dtype=np.float32)
+
+    def _increment_beta(self):
+        '''
+        Increment the beta value towards 1 for importance sampling.
+        '''
+        self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
     
+    def store(self, experience):
+        pass
+
+
 # # x = deque(maxlen=5)
 # buf = SimpleBuffer(max_capacity=5)
 # buf.store(([1,2,3],1,2,[4,5,6],0))
