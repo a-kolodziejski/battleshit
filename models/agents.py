@@ -408,8 +408,8 @@ class DQNAgent(nn.Module):
         '''
         # Reset environment
         state, _ = self.env.reset()
-        # Loop until buffer is full
-        while len(self.buffer) < size:
+        # Save "size" experienes in the buffer
+        for _ in range(size):
             # Select action
             action = random.randint(0, self.online_model.output_dim-1)
             # Take action in environment and collect experience
@@ -600,7 +600,6 @@ class DoubleDQNAgent(DQNAgent):
         next_best_actions = torch.argmax(self.online_model(next_states).detach(), dim = 1)
         # Let target model score those next_best_actions
         targets = rewards + self.gamma * self.target_model(next_states).detach()[range(batch_size), next_best_actions] * (1 - dones)
-            
         # Get the Q-value for the current state and action
         current_q_values = self.online_model(states)[range(batch_size), actions]
         # Calculate mean loss over the batch
@@ -648,7 +647,23 @@ class PERDoubleDQNAgent(DoubleDQNAgent):
         Returns:
             loss (torch.Tensor): The calculated loss.
         '''
-        pass
+        # Sample a batch of experiences from the buffer
+        states, actions, rewards, next_states, dones, indices, weights = self.buffer.sample(batch_size)
+        # Choose actions online model thinks are best for next states
+        next_best_actions = torch.argmax(self.online_model(next_states).detach(), dim = 1)
+        # Let target model score those next_best_actions
+        targets = rewards + self.gamma * self.target_model(next_states).detach()[range(batch_size), next_best_actions] * (1 - dones)
+        # Get the Q-value for the current state and action
+        current_q_values = self.online_model(states)[range(batch_size), actions]
+        # Calculate TD errors
+        td_errors = targets - current_q_values
+        # Update priorities in the buffer for sampled experiences
+        self.buffer.update_priorities(indices, td_errors)
+        # Calculate mean loss over the batch
+        loss = torch.mean((weights * td_errors)**2)
+        # Return loss
+        return loss
+        
 
 online_model = DuellingFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), hidden_activation = torch.nn.ReLU(), output_activation = torch.nn.Identity())    
 target_model = DuellingFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), hidden_activation = torch.nn.ReLU(), output_activation = torch.nn.Identity()) 
@@ -684,4 +699,4 @@ states = torch.tensor([[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]], dtype=torch.
 # next_best_actions = torch.argmax(online_model(states).detach(), dim = 1)
 
 # print(target_model(states).detach()[range(len(states)), next_best_actions])
-print(torch.amax(online_model(states), dim = -1).detach().numpy())
+# print(torch.amax(online_model(states), dim = -1).detach().numpy())

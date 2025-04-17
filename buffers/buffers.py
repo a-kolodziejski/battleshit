@@ -171,27 +171,22 @@ class PrioritizedReplayBuffer:
         Returns:
             batch of experiences and their indices and weights: A tuple containing the sampled experiences and their indices.
         '''
-        # If the buffer is empty, return empty lists.
-        if len(self.buffer) == 0:
-            return [], [], [], [], [], [], []
         # Calculate the sampling probabilities based on priorities.
         if self.rank_based:
             # Rank-based sampling: sort priorities and calculate probabilities based on ranks.
-            sorted_indices = np.argsort(self.priorities)[::-1]
-            rank_based_priorities = np.zeros_like(self.priorities)
-            rank_based_priorities[sorted_indices] = np.arange(1, self.max_capacity + 1)
+            sorted_indices = np.argsort(self.priorities[:self._size])[::-1]
+            rank_based_priorities = np.zeros_like(sorted_indices)
+            rank_based_priorities[sorted_indices] = np.arange(1, self._size + 1)
+            priorities = 1.0 / rank_based_priorities
         else:
             # Proportional sampling: calculate probabilities based on priorities.
-            priorities = self.priorities
+            priorities = self.priorities[:self._size]
         # Calculate sampling probsabilities using the priorities and alpha.
         sampling_probs = priorities ** self.alpha
         sampling_probs /= sampling_probs.sum()
         
         # Sample indices based on the calculated probabilities.
-        if self.rank_based:
-            indices = np.random.choice(self.max_capacity, size=batch_size, replace=False, p=sampling_probs)
-        else:
-            indices = np.random.choice(self.max_capacity, size=batch_size, replace=False, p=sampling_probs)
+        indices = np.random.choice(self._size, size=batch_size, replace=False, p=sampling_probs)
         
         # Retrieve the sampled experiences
         experiences = self.buffer[indices]
@@ -199,9 +194,10 @@ class PrioritizedReplayBuffer:
         # Increment beta for importance sampling correction.
         self._increment_beta()
         
-        # Calculate the importance sampling weights.
+        # Calculate the importance sampling weights and convert them to tensors.
         weights = (self._size * sampling_probs[indices]) ** (-self.beta)
         weights /= weights.max()
+        weights = torch.tensor(weights, dtype=torch.float32)
         
         # Unzip the experiences into separate components.
         states, actions, rewards, next_states, dones = zip(*experiences)
@@ -230,16 +226,16 @@ class PrioritizedReplayBuffer:
 # print("Next States:", next_states)
 # print("Dones:", dones)
 
-buffer = np.empty(5, dtype = np.ndarray)
-buffer[0] = ([1,2,3],1,2,[4,5,6],0)
-buffer[1] = ([10,20,30],10,20,[40,50,60],0)
-buffer[2] = ([1.5,2.5,3.5],3,-4,[4.5,5.5,6.5],1)
-# print(type(buffer[0]))
-priorities = np.zeros(5, dtype=np.float32)
-priorities[0] = 0.5
-priorities[1] = 0.2
-priorities[2] = 0.8
-probabilities = priorities ** 0.6/np.sum(priorities ** 0.6)
+# buffer = np.empty(5, dtype = np.ndarray)
+# buffer[0] = ([1,2,3],1,2,[4,5,6],0)
+# buffer[1] = ([10,20,30],10,20,[40,50,60],0)
+# buffer[2] = ([1.5,2.5,3.5],3,-4,[4.5,5.5,6.5],1)
+# # print(type(buffer[0]))
+# priorities = np.zeros(5, dtype=np.float32)
+# priorities[0] = 0.5
+# priorities[1] = 0.2
+# priorities[2] = 0.8
+# probabilities = priorities ** 0.6/np.sum(priorities ** 0.6)
 # print(probabilities)  
 # print(priorities.max())
 # priorities[np.array([0,2])] = np.array([0.1, 0.1])
@@ -247,4 +243,4 @@ probabilities = priorities ** 0.6/np.sum(priorities ** 0.6)
 
 # print(np.random.choice(5, size=2, replace=False, p =probabilities))
 # print(buffer[6])
-print(np.argsort(probabilities)[::-1])
+# print(np.argsort(probabilities)[::-1])

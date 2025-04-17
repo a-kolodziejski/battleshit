@@ -40,6 +40,11 @@ if __name__ == "__main__":
             buffer_kind = config_file[exp]['buffer'].get("buffer_kind", None)
             buffer_size = config_file[exp]['buffer'].get("buffer_size", None)
             buffer_min_capacity = config_file[exp]['buffer'].get("buffer_min_capacity", None)
+            buffer_alpha = config_file[exp]['buffer'].get("alpha", None)
+            buffer_beta = config_file[exp]['buffer'].get("beta", None)
+            buffer_beta_increment = config_file[exp]['buffer'].get("beta_increment_per_sampling", None)
+            buffer_epsilon = config_file[exp]['buffer'].get("epsilon", None)
+            buffer_rank_based = config_file[exp]['buffer'].get("rank_based", None)
             # Agent-specific parameters
             agent_kind = config_file[exp]['agent'].get("agent_kind", None)
             agent_bootstrap = config_file[exp]['agent'].get("bootstrap", None)
@@ -73,8 +78,10 @@ if __name__ == "__main__":
                                         globals()[model_hidden_activation](),
                                         globals()[model_output_activation]())
             # Buffer
-            if buffer_kind:
+            if buffer_kind == "SimpleBuffer":
                 buffer = globals()[buffer_kind](buffer_size, buffer_min_capacity)
+            elif buffer_kind == "PrioritizedReplayBuffer":
+                buffer = globals()[buffer_kind](buffer_size, buffer_min_capacity, buffer_alpha, buffer_beta, buffer_beta_increment, buffer_epsilon, buffer_rank_based)
             
             # Agent
             if agent_kind == "preDQNAgentNoBatch":
@@ -95,7 +102,7 @@ if __name__ == "__main__":
                         os.makedirs(save_graph_path)
                     agent.plot_performance_graph(save_graph_path + f"{exp}.png")
             
-            elif agent_kind == "DQNAgent" or agent_kind == "DoubleDQNAgent":
+            elif agent_kind == "DQNAgent" or agent_kind == "DoubleDQNAgent" or agent_kind == "PERDoubleDQNAgent":
                 # Create target model for DQN agent
                 target_model = globals()[model_kind](model_input_dim,
                                         model_output_dim,
@@ -118,4 +125,6 @@ if __name__ == "__main__":
                     if not os.path.exists(save_graph_path):
                         os.makedirs(save_graph_path)
                     agent.plot_performance_graph(save_graph_path + f"{exp}.png")
+                
+
       
