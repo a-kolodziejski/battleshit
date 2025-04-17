@@ -114,10 +114,14 @@ class PrioritizedReplayBuffer:
         self.beta_increment_per_sampling = beta_increment_per_sampling
         self.epsilon = epsilon
         self.rank_based = rank_based
-        # Initialize a deque with a maximum length to act as the buffer.
-        self.buffer = deque(maxlen=max_capacity)
+        # Initialize an epty container of max_capacity size to act as the buffer.
+        self.buffer = np.empty(max_capacity, dtype = np.ndarray)
         # Initialize a list to store priorities for each experience in the buffer.
         self.priorities = np.zeros(max_capacity, dtype=np.float32)
+        # Initialize a counter to keep track of the number of experiences stored.
+        self._counter = 0
+        # To keep track of the current size of the buffer.
+        self._size = 0
 
     def _increment_beta(self):
         '''
@@ -126,7 +130,91 @@ class PrioritizedReplayBuffer:
         self.beta = min(1.0, self.beta + self.beta_increment_per_sampling)
     
     def store(self, experience):
-        pass
+        '''
+        Stores an experience tuple in the buffer. The experience tuple is expected
+        to be of the form (state, action, reward, next_state, done).
+        
+        Args:
+            experience (tuple): The experience tuple to store.
+        '''
+        # if buffer is empty set priority of the first experience to 1.0 else set it to max priority in priorities list
+        priority = self.priorities.max() if self._counter else 1.0
+        # Store the experience in the buffer at the current index.
+        self.buffer[self._counter] = experience
+        # Store the priority in the priorities list at the current index.
+        self.priorities[self._counter] = priority
+        # Increment the counter and wrap around if it exceeds max_capacity.
+        self._counter = (self._counter + 1) % self.max_capacity
+        # Increment the size of the buffer, ensuring it does not exceed max_capacity.
+        self._size = min(self._size + 1, self.max_capacity)
+    
+    def update_priorities(self, indices, td_errors):
+        '''
+        Update the priorities of the experiences at the given indices.
+        
+        Args:
+            indices (np.ndarray): The indices of the experiences to update.
+            td_errors (torch.Tensor): batch of TD errors calculated for experiences in the buffer under  indices positions.
+        '''
+        # Convert the TD errors to absolute values and add epsilon to avoid zero priority.
+        new_priorities = np.abs(td_errors.detach().numpy()) + self.epsilon
+        # Update the priorities in the buffer at the given indices.
+        self.priorities[indices] = new_priorities
+    
+    def sample(self, batch_size):
+        '''
+        Retrieves a batch of experiences from the buffer based on their priorities.
+        
+        Args:
+            batch_size (int): The number of experience tuples to retrieve.
+        
+        Returns:
+            batch of experiences and their indices and weights: A tuple containing the sampled experiences and their indices.
+        '''
+        # If the buffer is empty, return empty lists.
+        if len(self.buffer) == 0:
+            return [], [], [], [], [], [], []
+        # Calculate the sampling probabilities based on priorities.
+        if self.rank_based:
+            # Rank-based sampling: sort priorities and calculate probabilities based on ranks.
+            sorted_indices = np.argsort(self.priorities)[::-1]
+            rank_based_priorities = np.zeros_like(self.priorities)
+            rank_based_priorities[sorted_indices] = np.arange(1, self.max_capacity + 1)
+        else:
+            # Proportional sampling: calculate probabilities based on priorities.
+            priorities = self.priorities
+        # Calculate sampling probsabilities using the priorities and alpha.
+        sampling_probs = priorities ** self.alpha
+        sampling_probs /= sampling_probs.sum()
+        
+        # Sample indices based on the calculated probabilities.
+        if self.rank_based:
+            indices = np.random.choice(self.max_capacity, size=batch_size, replace=False, p=sampling_probs)
+        else:
+            indices = np.random.choice(self.max_capacity, size=batch_size, replace=False, p=sampling_probs)
+        
+        # Retrieve the sampled experiences
+        experiences = self.buffer[indices]
+        
+        # Increment beta for importance sampling correction.
+        self._increment_beta()
+        
+        # Calculate the importance sampling weights.
+        weights = (self._size * sampling_probs[indices]) ** (-self.beta)
+        weights /= weights.max()
+        
+        # Unzip the experiences into separate components.
+        states, actions, rewards, next_states, dones = zip(*experiences)
+        
+        # Convert the lists to tensors of appropriate shape.
+        states = torch.tensor(states, dtype=torch.float32)
+        actions = torch.tensor(actions, dtype=torch.long)
+        rewards = torch.tensor(rewards, dtype=torch.float32)
+        next_states = torch.tensor(next_states, dtype=torch.float32)
+        dones = torch.tensor(dones, dtype=torch.float32)
+        
+        # Return collected tensors as a tuple along with indices and weights.
+        return states, actions, rewards, next_states, dones, indices, weights
 
 
 # # x = deque(maxlen=5)
@@ -141,3 +229,22 @@ class PrioritizedReplayBuffer:
 # print("Rewards:", rewards)
 # print("Next States:", next_states)
 # print("Dones:", dones)
+
+buffer = np.empty(5, dtype = np.ndarray)
+buffer[0] = ([1,2,3],1,2,[4,5,6],0)
+buffer[1] = ([10,20,30],10,20,[40,50,60],0)
+buffer[2] = ([1.5,2.5,3.5],3,-4,[4.5,5.5,6.5],1)
+# print(type(buffer[0]))
+priorities = np.zeros(5, dtype=np.float32)
+priorities[0] = 0.5
+priorities[1] = 0.2
+priorities[2] = 0.8
+probabilities = priorities ** 0.6/np.sum(priorities ** 0.6)
+# print(probabilities)  
+# print(priorities.max())
+# priorities[np.array([0,2])] = np.array([0.1, 0.1])
+# print(priorities)
+
+# print(np.random.choice(5, size=2, replace=False, p =probabilities))
+# print(buffer[6])
+print(np.argsort(probabilities)[::-1])
