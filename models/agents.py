@@ -607,8 +607,48 @@ class DoubleDQNAgent(DQNAgent):
         loss = torch.mean((targets - current_q_values)**2)
         # Return loss
         return loss
-     
+    
+    
+#####################################################################################
+#####################################################################################
 
+# Agent class for Double DQN agent using Prioritized Experience Replay
+
+#####################################################################################
+#####################################################################################
+     
+class PERDoubleDQNAgent(DoubleDQNAgent):
+    '''
+    A Double DQN agent class with Prioritized Experience Replay. It inherits from the DoubleDQNAgent class.
+    '''
+    def __init__(self, online_model, target_model, env, buffer, init_epsilon, end_epsilon, decay_ratio, gamma, optimizer, tau):
+        '''
+        Args:
+            online_model (torch.nn.Module): The neural network model used by the agent.
+            target_model (torch.nn.Module): The target network used for bootstrapping.
+            buffer (battleshit.buffers.PrioritizedReplayBuffer): PER buffer used for storing experiences.
+            env (gym.Env or custom): The environment in which the agent operates.
+            init_epsilon (float): The initial value of exploration rate for the epsilon-greedy policy.
+            end_epsilon (float): The final value of exploration rate for the epsilon-greedy policy.
+            decay_ratio (float): The ratio for decaying epsilon.
+            gamma (float): The discount factor for future rewards.
+            optimizer (torch.optim.Optimizer): The optimizer used for training the model.
+            tau (float): The soft update parameter for the target network.
+        '''
+        super().__init__(online_model, target_model, env, buffer, init_epsilon, end_epsilon, decay_ratio, gamma, optimizer, tau)
+    
+    
+    def calculate_loss(self, batch_size):
+        '''
+        Calculates the loss for the batch of experiences sampled from the buffer.
+        
+        Args:
+            batch_size (int): The size of the batch sampled from the buffer.
+        
+        Returns:
+            loss (torch.Tensor): The calculated loss.
+        '''
+        pass
 
 online_model = DuellingFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), hidden_activation = torch.nn.ReLU(), output_activation = torch.nn.Identity())    
 target_model = DuellingFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), hidden_activation = torch.nn.ReLU(), output_activation = torch.nn.Identity()) 
