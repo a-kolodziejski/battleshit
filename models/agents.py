@@ -663,7 +663,18 @@ class PERDoubleDQNAgent(DoubleDQNAgent):
         loss = torch.mean((weights * td_errors)**2)
         # Return loss
         return loss
-        
+
+
+#####################################################################################
+#####################################################################################
+
+# REINFORCE agent with rewards-to-go and baselines calculated by critic network
+
+#####################################################################################
+#####################################################################################
+
+
+
 
 online_model = DuellingFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), hidden_activation = torch.nn.ReLU(), output_activation = torch.nn.Identity())    
 target_model = DuellingFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), hidden_activation = torch.nn.ReLU(), output_activation = torch.nn.Identity()) 
