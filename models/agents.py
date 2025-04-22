@@ -668,12 +668,149 @@ class PERDoubleDQNAgent(DoubleDQNAgent):
 #####################################################################################
 #####################################################################################
 
-# REINFORCE agent with rewards-to-go and baselines calculated by critic network
+# REINFORCE agent with rewards-to-go, entropy regularization term
+# and baselines calculated by critic network
 
+# Remember about implementing discounting
+# Remember to standaridize returns
+# Remenber to implement entropy regularization term
 #####################################################################################
 #####################################################################################
 
+class REINFORCE:
+  '''
+  Implements REINFORCE algorithm (also called vanilla policy gradient algorithm)
+  with baseline (subtract value function from reward for a given state)
+  and reward-to-go functionality i.e only future rewards can influence
+  action taken at a given time.
+  '''
+  def __init__(self, actor, critic, env, gamma, actor_optim, critic_optim, beta = 0):
+    '''
+    Args:
+      actor (torch.nn.Module): stochastic policy implemented via neural network
+      critic (torch.nn.Module): Neural network to estimate value function
+      env (gym.Env or custom): The environment in which the agent operates.
+      gamma (float): The discount factor for future rewards.
+      actor_optim (torch.optim.Optimizer): The optimizer used for training the actor model.
+      critic_optim (torch.optim.Optimizer): The optimizer used for training the critic model.
+      beta (float): The coefficient for the entropy regularization term.
+    '''
+    # Attributes assignment
+    self.actor = actor
+    self.critic = critic
+    self.env = env
+    self.gamma = gamma
+    self.actor_optim = actor_optim
+    self.critic_optim = critic_optim
+    self.beta = beta
+    # Initialize empty list for storing testing data
+    self.testing_data = []
 
+  def train(self, num_trajectories, num_updates, test_freq, num_trials):
+    '''
+      Implements training loop of REINFORCE agent.
+
+      Args:
+        num_trajectories (int): number of trajectories (i.e. complete episodes)
+                                to collect before updating actor and critic
+        num_updates (int): how many times policy and V network are to be updated
+        test_freq (int): how often to test the agent during training
+        num_trials (int): number of episodes to test the agent
+    '''
+    # Main loop
+    for update in tqdm(range(num_updates)):
+      # Collect experiences for num_trajectories
+      logpas, entropies, weights, baselines, rewards, lengths = self.step(num_trajectories)
+      # Obtain loss values
+      policy_loss, v_loss = self.calculate_loss(logpas, entropies, weights, baselines, rewards)
+      # Reset optimizer's gradients buffers
+      self.actor_optim.zero_grad()
+      self.critic_optim.zero_grad()
+      # Calculate gradients
+      policy_loss.backward()
+      v_loss.backward()
+      # Update policy and value function networks parameters
+      self.actor_optim.step()
+      self.critic_optim.step()
+      # Check if testing is needed
+      if test_freq > 0 and update % test_freq == 0:
+        # Test the agent
+        mean_reward = self.test(num_trials)
+        # Store testing data
+        self.testing_data.append((update, mean_reward))
+        # Print testing data
+        print(f"Episode {update}: Mean reward: {mean_reward:.2f}")
+                    
+    
+    
+    def test(self, num_episodes):
+        '''
+        Implements testing loop for the agent. During testing greedy actions are selected.
+        
+        Args:
+            num_episodes (int): The number of testing episodes.
+        '''
+        # Put model in evaluation mode
+        self.online_model.eval()
+        # Initialize rewards list
+        episode_rewards = []
+        # Switch off gradient tracking
+        with torch.no_grad():
+            # Loop over episodes
+            for _ in range(num_episodes):
+                # Reset environment
+                state, _ = self.env.reset()
+                done = False
+                # Loop until episode is done
+                while not done:
+                    # Select action
+                    action = self.select_greedy_action(state)
+                    # Take action in environment and collect experience
+                    next_state, reward, terminated, truncated, _ = self.env.step(action)
+                    # Store reward
+                    episode_rewards.append(reward)
+                    # Check if episode is done
+                    done = terminated or truncated
+                    # Update state
+                    state = next_state if not done else self.env.reset()[0]
+        # Put model back into training mode
+        self.online_model.train()
+        # Return average reward over all episodes
+        return sum(episode_rewards) / num_episodes
+    
+    def save_model(self, path):
+        '''
+        Saves the model to the specified path.
+        
+        Args:
+            path (str): The path where the model will be saved.
+        '''
+        torch.save(self.online_model, path)
+        print(f"Model saved to {path}.")
+
+    def plot_performance_graph(self, path):
+        '''
+        Plots and saves the performance graph obtained during training, i.e. it plots
+        the average reward obtained during testing episodes. The graph is saved to the specified path.
+        
+        Specifically it plots self.testing_data which is a list of tuples (update, mean_reward).
+        
+        Args:
+            path (str): The path where the graph will be saved.
+        '''
+        # Unpack testing data
+        updates, mean_rewards = zip(*self.testing_data)
+        # Plot data
+        plt.figure(figsize=(16, 10))
+        plt.plot(updates, mean_rewards, marker='o', linestyle='-', color='b')
+        plt.title("Agent Performance During Training")
+        plt.xlabel("Update")
+        plt.ylabel("Mean Reward")
+        # Save plot to file with the name of the simulation
+        plt.tight_layout()
+        plt.savefig(f"{path}.png")
+        plt.close()
+        
 
 
 online_model = DuellingFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64), hidden_activation = torch.nn.ReLU(), output_activation = torch.nn.Identity())    
@@ -711,3 +848,11 @@ states = torch.tensor([[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]], dtype=torch.
 
 # print(target_model(states).detach()[range(len(states)), next_best_actions])
 # print(torch.amax(online_model(states), dim = -1).detach().numpy())
+
+# t1 = torch.tensor([1.0], requires_grad=True)
+# t2 = torch.tensor([2.0], requires_grad=True)
+
+# tens = [t1, t2]
+
+# t3 = torch.cat(tens)
+# print(t3)
