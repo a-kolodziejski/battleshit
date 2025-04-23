@@ -706,6 +706,107 @@ class REINFORCE:
     # Initialize empty list for storing testing data
     self.testing_data = []
 
+  def step_in_env(self, obs):
+    '''
+    Returns action, its log probability and entropy. It passes obs through
+    actor neural network and from obtained logits it samples
+    from Categorical prob. distribution.
+    
+    Args:
+        obs (torch.Tensor): The observation (state) of the environment.
+    
+    Returns:
+        action (int): The sampled action.
+        log_prob (torch.Tensor): The log-probability of the sampled action.
+        entropy (torch.Tensor): The entropy of the action distribution.
+    '''
+    # Calculate logits
+    logits = self.actor(obs)
+    # Calculate prob distribution from logits
+    prob_dist = torch.distributions.Categorical(logits = logits)
+    # Sample action from above distribution
+    sample_action = prob_dist.sample()
+    # Calculate log-prob of selected action
+    log_prob = prob_dist.log_prob(sample_action)
+    # Calculate entropy of the distribution
+    entropy = prob_dist.entropy()
+    # Return sample action and its log-probability
+    return sample_action.item(), log_prob, entropy
+
+  def _collect_trajectory(self, num_trajectories, training = True):
+      '''
+      Collects num_trajectories of experiences from the environment.
+      The experiences are stored in the form of log probabilities, entropies,
+      weights, baselines, rewards and lengths of the trajectories.
+      
+      Args:
+          num_trajectories (int): The number of trajectories to collect.
+          training (bool): Whether the agent is in training mode or not.
+    
+      Returns:
+          logpas (list): List of log probabilities of actions taken.
+          entropies (list): List of entropies of the action distributions.
+          weights (list): List of weights for the policy gradient update.
+          baselines (list): List of baselines (value function estimates).
+          rewards (list): List of rewards collected during the episode.
+      '''
+      # Initialize empty lists for storing data
+      entropies = []    
+      # Weights that multiply log-probs in policy gradient theorem
+      weights_without_baseline = []
+      # List for collecting baselines (value function from critic)
+      baselines = []
+      # Log-Probabilities of taking specific actions
+      logpas = []
+      # To keep number of steps in each episode
+      lengths = []
+      # Rewards collected during episode
+      rewards = []
+
+      for t in range(num_trajectories):
+        # Set done flag to False
+        done = False
+        # To keep track of rewards in this episode
+        rew = []
+        # Reset environment
+        state, info = self.env.reset()
+        # Loop until episode is done
+        while not done:
+          # Let critic value current state
+          baseline = self.critic(state).squeeze(-1)
+          # Select action
+          action, logpa, entropy = self.get_action(state)
+          # Perform action
+          next_state, reward, terminated, truncated, info = self.env.step(action)
+          done = terminated or truncated
+          # Save all data in appropriate lists
+          rew.append(reward)
+          logpas.append(logpa)
+          baselines.append(baseline)
+          entropies.append(entropy)
+          # State update
+          state = next_state
+          # If episode is done
+          if done:
+            # Append rew to rewards list
+            rewards += rew
+            # Calculate # of moves in this episode
+            num_of_moves = len(rew)
+            # Instantiate rewards to go array
+            rewards_to_go = np.zeros_like(rew)
+            # Save trajectory length
+            lengths.append(num_of_moves)
+            # Calculate rewards to go
+            for i in reversed(range(num_of_moves)):
+              rewards_to_go[i] = rewards[i] + (rewards_to_go[i+1] if i+1 < num_of_moves else 0)
+            # Add rewards to go
+            weights_without_baseline += list(rewards_to_go)
+        # Calculate final weights i.e. rewards_to_go - baseline
+        weights = torch.tensor(weights_without_baseline, dtype = torch.float32) - torch.tensor(baselines, dtype = torch.float32)
+      # Return all quantities gathered during this epsiode
+      return logpas, entropies, weights, baselines, rewards
+
+    
   def train(self, num_trajectories, num_updates, test_freq, num_trials):
     '''
       Implements training loop of REINFORCE agent.
@@ -720,7 +821,7 @@ class REINFORCE:
     # Main loop
     for update in tqdm(range(num_updates)):
       # Collect experiences for num_trajectories
-      logpas, entropies, weights, baselines, rewards, lengths = self.step(num_trajectories)
+      logpas, entropies, weights, baselines, rewards = self._collect_trajectory(num_trajectories, training = True)
       # Obtain loss values
       policy_loss, v_loss = self.calculate_loss(logpas, entropies, weights, baselines, rewards)
       # Reset optimizer's gradients buffers
@@ -742,8 +843,7 @@ class REINFORCE:
         print(f"Episode {update}: Mean reward: {mean_reward:.2f}")
                     
     
-    
-    def test(self, num_episodes):
+  def test(self, num_episodes):
         '''
         Implements testing loop for the agent. During testing greedy actions are selected.
         
@@ -778,17 +878,17 @@ class REINFORCE:
         # Return average reward over all episodes
         return sum(episode_rewards) / num_episodes
     
-    def save_model(self, path):
+  def save_model(self, path):
         '''
         Saves the model to the specified path.
         
         Args:
             path (str): The path where the model will be saved.
         '''
-        torch.save(self.online_model, path)
+        torch.save(self.actor, path)
         print(f"Model saved to {path}.")
 
-    def plot_performance_graph(self, path):
+  def plot_performance_graph(self, path):
         '''
         Plots and saves the performance graph obtained during training, i.e. it plots
         the average reward obtained during testing episodes. The graph is saved to the specified path.
