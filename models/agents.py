@@ -678,180 +678,214 @@ class PERDoubleDQNAgent(DoubleDQNAgent):
 #####################################################################################
 
 class REINFORCE:
-  '''
-  Implements REINFORCE algorithm (also called vanilla policy gradient algorithm)
-  with baseline (subtract value function from reward for a given state)
-  and reward-to-go functionality i.e only future rewards can influence
-  action taken at a given time.
-  '''
-  def __init__(self, actor, critic, env, gamma, actor_optim, critic_optim, beta = 0):
     '''
-    Args:
-      actor (torch.nn.Module): stochastic policy implemented via neural network
-      critic (torch.nn.Module): Neural network to estimate value function
-      env (gym.Env or custom): The environment in which the agent operates.
-      gamma (float): The discount factor for future rewards.
-      actor_optim (torch.optim.Optimizer): The optimizer used for training the actor model.
-      critic_optim (torch.optim.Optimizer): The optimizer used for training the critic model.
-      beta (float): The coefficient for the entropy regularization term.
+    Implements REINFORCE algorithm (also called vanilla policy gradient algorithm)
+    with baseline (subtract value function from reward for a given state)
+    and reward-to-go functionality i.e only future rewards can influence
+    action taken at a given time.
     '''
-    # Attributes assignment
-    self.actor = actor
-    self.critic = critic
-    self.env = env
-    self.gamma = gamma
-    self.actor_optim = actor_optim
-    self.critic_optim = critic_optim
-    self.beta = beta
-    # Initialize empty list for storing testing data
-    self.testing_data = []
-
-  def step_in_env(self, obs):
-    '''
-    Returns action, its log probability and entropy. It passes obs through
-    actor neural network and from obtained logits it samples
-    from Categorical prob. distribution.
-    
-    Args:
-        obs (torch.Tensor): The observation (state) of the environment.
-    
-    Returns:
-        action (int): The sampled action.
-        log_prob (torch.Tensor): The log-probability of the sampled action.
-        entropy (torch.Tensor): The entropy of the action distribution.
-    '''
-    # Calculate logits
-    logits = self.actor(obs)
-    # Calculate prob distribution from logits
-    prob_dist = torch.distributions.Categorical(logits = logits)
-    # Sample action from above distribution
-    sample_action = prob_dist.sample()
-    # Calculate log-prob of selected action
-    log_prob = prob_dist.log_prob(sample_action)
-    # Calculate entropy of the distribution
-    entropy = prob_dist.entropy()
-    # Return sample action and its log-probability
-    return sample_action.item(), log_prob, entropy
-
-  def _collect_trajectory(self, num_trajectories, training = True):
-      '''
-      Collects num_trajectories of experiences from the environment.
-      The experiences are stored in the form of log probabilities, entropies,
-      weights, baselines, rewards and lengths of the trajectories.
-      
-      Args:
-          num_trajectories (int): The number of trajectories to collect.
-          training (bool): Whether the agent is in training mode or not.
-    
-      Returns:
-          logpas (list): List of log probabilities of actions taken.
-          entropies (list): List of entropies of the action distributions.
-          weights (list): List of weights for the policy gradient update.
-          baselines (list): List of baselines (value function estimates).
-          rewards (list): List of rewards collected during the episode.
-      '''
-      # Initialize empty lists for storing data
-      entropies = []    
-      # Weights that multiply log-probs in policy gradient theorem
-      weights_without_baseline = []
-      # List for collecting baselines (value function from critic)
-      baselines = []
-      # Log-Probabilities of taking specific actions
-      logpas = []
-      # To keep number of steps in each episode
-      lengths = []
-      # Rewards collected during episode
-      rewards = []
-
-      for t in range(num_trajectories):
-        # Set done flag to False
-        done = False
-        # To keep track of rewards in this episode
-        rew = []
-        # Reset environment
-        state, info = self.env.reset()
-        # Loop until episode is done
-        while not done:
-          # Let critic value current state
-          baseline = self.critic(state).squeeze(-1)
-          # Select action
-          action, logpa, entropy = self.get_action(state)
-          # Perform action
-          next_state, reward, terminated, truncated, info = self.env.step(action)
-          done = terminated or truncated
-          # Save all data in appropriate lists
-          rew.append(reward)
-          logpas.append(logpa)
-          baselines.append(baseline)
-          entropies.append(entropy)
-          # State update
-          state = next_state
-          # If episode is done
-          if done:
-            # Append rew to rewards list
-            rewards += rew
-            # Calculate # of moves in this episode
-            num_of_moves = len(rew)
-            # Instantiate rewards to go array
-            rewards_to_go = np.zeros_like(rew)
-            # Save trajectory length
-            lengths.append(num_of_moves)
-            # Calculate rewards to go
-            for i in reversed(range(num_of_moves)):
-              rewards_to_go[i] = rewards[i] + (rewards_to_go[i+1] if i+1 < num_of_moves else 0)
-            # Add rewards to go
-            weights_without_baseline += list(rewards_to_go)
-        # Calculate final weights i.e. rewards_to_go - baseline
-        weights = torch.tensor(weights_without_baseline, dtype = torch.float32) - torch.tensor(baselines, dtype = torch.float32)
-      # Return all quantities gathered during this epsiode
-      return logpas, entropies, weights, baselines, rewards
-
-    
-  def train(self, num_trajectories, num_updates, test_freq, num_trials):
-    '''
-      Implements training loop of REINFORCE agent.
-
-      Args:
-        num_trajectories (int): number of trajectories (i.e. complete episodes)
-                                to collect before updating actor and critic
-        num_updates (int): how many times policy and V network are to be updated
-        test_freq (int): how often to test the agent during training
-        num_trials (int): number of episodes to test the agent
-    '''
-    # Main loop
-    for update in tqdm(range(num_updates)):
-      # Collect experiences for num_trajectories
-      logpas, entropies, weights, baselines, rewards = self._collect_trajectory(num_trajectories, training = True)
-      # Obtain loss values
-      policy_loss, v_loss = self.calculate_loss(logpas, entropies, weights, baselines, rewards)
-      # Reset optimizer's gradients buffers
-      self.actor_optim.zero_grad()
-      self.critic_optim.zero_grad()
-      # Calculate gradients
-      policy_loss.backward()
-      v_loss.backward()
-      # Update policy and value function networks parameters
-      self.actor_optim.step()
-      self.critic_optim.step()
-      # Check if testing is needed
-      if test_freq > 0 and update % test_freq == 0:
-        # Test the agent
-        mean_reward = self.test(num_trials)
-        # Store testing data
-        self.testing_data.append((update, mean_reward))
-        # Print testing data
-        print(f"Episode {update}: Mean reward: {mean_reward:.2f}")
-                    
-    
-  def test(self, num_episodes):
+    def __init__(self, actor, critic, env, gamma, actor_optim, critic_optim, beta = 0):
         '''
-        Implements testing loop for the agent. During testing greedy actions are selected.
+        Args:
+            actor (torch.nn.Module): stochastic policy implemented via neural network
+            critic (torch.nn.Module): Neural network to estimate value function
+            env (gym.Env or custom): The environment in which the agent operates.
+            gamma (float): The discount factor for future rewards.
+            actor_optim (torch.optim.Optimizer): The optimizer used for training the actor model.
+            critic_optim (torch.optim.Optimizer): The optimizer used for training the critic model.
+            beta (float): The coefficient for the entropy regularization term.
+        '''
+        # Attributes assignment
+        self.actor = actor
+        self.critic = critic
+        self.env = env
+        self.gamma = gamma
+        self.actor_optim = actor_optim
+        self.critic_optim = critic_optim
+        self.beta = beta
+        # Initialize empty list for storing testing data
+        self.testing_data = []
+
+    def step_in_env(self, obs):
+        '''
+        Returns action, its log probability and entropy. It passes obs through
+        actor neural network and from obtained logits it samples
+        from Categorical prob. distribution. This function is used during training.
+    
+        Args:
+            obs (torch.Tensor): The observation (state) of the environment.
+    
+        Returns:
+            action (int): The sampled action.
+            log_prob (torch.Tensor): The log-probability of the sampled action.
+            entropy (torch.Tensor): The entropy of the action distribution.
+        '''
+        # Calculate logits
+        logits = self.actor(obs)
+        # Calculate prob distribution from logits
+        prob_dist = torch.distributions.Categorical(logits = logits)
+        # Sample action from above distribution
+        sample_action = prob_dist.sample()
+        # Calculate log-prob of selected action
+        log_prob = prob_dist.log_prob(sample_action)
+        # Calculate entropy of the distribution
+        entropy = prob_dist.entropy()
+        #  Return sample action and its log-probability
+        return sample_action.item(), log_prob, entropy
+
+    def sample_action(self, obs, greedy = False):
+        '''
+        Returns action for given state. It passes obs through
+        actor neural network and from obtained logits it samples
+        from Categorical prob. distribution. Function is used after
+        training is complete or for testing purposes.
+        
+        Args:
+            obs (torch.Tensor): The observation (state) of the environment.
+            greedy (bool): Whether to select the action greedily or not.
+            
+        Returns:
+            action (int): The sampled action.
+        '''
+        # Switch off gradient tracking
+        with torch.no_grad():
+            # Calculate logits
+            logits = self.actor(obs)
+            # Check if greedy action is needed
+            if greedy:
+            # Select action with the highest probability
+                action = torch.argmax(logits, dim = -1).item()
+            else:
+                # Calculate prob distribution from logits
+                prob_dist = torch.distributions.Categorical(logits = logits)
+                # Sample action from above distribution
+                action = prob_dist.sample().item()
+            # Return action
+            return action
+
+    def _collect_trajectory(self, num_trajectories):
+        '''
+        Collects num_trajectories of experiences from the environment.
+        The experiences are stored in the form of log probabilities, entropies,
+        weights, baselines, rewards and lengths of the trajectories.
+      
+        Args:
+            num_trajectories (int): The number of trajectories to collect.
+    
+        Returns:
+            logpas (list): List of log probabilities of actions taken.
+            entropies (list): List of entropies of the action distributions.
+            weights (list): List of weights for the policy gradient update.
+            baselines (list): List of baselines (value function estimates).
+            rewards (list): List of rewards collected during the episode.
+        '''
+        # Initialize empty lists for storing data
+        entropies = []    
+        # Weights that multiply log-probs in policy gradient theorem
+        weights_without_baseline = []
+        # List for collecting baselines (value function from critic)
+        baselines = []
+        # Log-Probabilities of taking specific actions
+        logpas = []
+        # To keep number of steps in each episode
+        lengths = []
+        # Rewards collected during episode
+        rewards = []
+
+        for t in range(num_trajectories):
+            # Set done flag to False
+            done = False
+            # To keep track of rewards in this episode
+            rew = []
+            # Reset environment
+            state, info = self.env.reset()
+            # Loop until episode is done
+            while not done:
+                # Convert state to tensor
+                obs = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
+                # Let critic value current state
+                baseline = self.critic(obs).squeeze(-1)
+                # Select action along with its log-prob and entropy
+                action, logpa, entropy = self.step_in_env(obs)
+                # Perform action
+                next_state, reward, terminated, truncated, info = self.env.step(action)
+                done = terminated or truncated
+                # Save all data in appropriate lists
+                rew.append(reward)
+                logpas.append(logpa)
+                baselines.append(baseline)
+                entropies.append(entropy)
+                # State update
+                state = next_state
+                # If episode is done
+                if done:
+                    # Append rew to rewards list
+                    rewards += rew
+                    # Calculate # of moves in this episode
+                    num_of_moves = len(rew)
+                    # Instantiate rewards to go array
+                    rewards_to_go = np.zeros_like(rew)
+                    # Save trajectory length
+                    lengths.append(num_of_moves)
+                # Calculate rewards to go
+                for i in reversed(range(num_of_moves)):
+                    rewards_to_go[i] = rewards[i] + (rewards_to_go[i+1] if i+1 < num_of_moves else 0)
+                # Add rewards to go
+                weights_without_baseline += list(rewards_to_go)
+            # Calculate final weights i.e. rewards_to_go - baseline
+            weights = torch.tensor(weights_without_baseline, dtype = torch.float32) - torch.tensor(baselines, dtype = torch.float32)
+        # Return all quantities gathered during this epsiode
+        return logpas, entropies, weights, baselines, rewards
+
+    
+    def train(self, num_trajectories, num_updates, test_freq, num_episodes, greedy = False):
+        '''
+        Implements training loop of REINFORCE agent.
+
+        Args:
+            num_trajectories (int): number of trajectories (i.e. complete episodes)
+                                to collect before updating actor and critic
+            num_updates (int): how many times policy and V network are to be updated
+            test_freq (int): how often to test the agent during training
+            num_episodes (int): number of episodes to test the agent
+            greedy (bool): whether to select the action greedily or not.
+        '''
+        # Main loop
+        for update in tqdm(range(num_updates)):
+            # Collect experiences for num_trajectories
+            logpas, entropies, weights, baselines, rewards = self._collect_trajectory(num_trajectories)
+            # Obtain loss values
+            policy_loss, v_loss = self.calculate_loss(logpas, entropies, weights, baselines, rewards)
+            # Reset optimizer's gradients buffers
+            self.actor_optim.zero_grad()
+            self.critic_optim.zero_grad()
+            # Calculate gradients
+            policy_loss.backward()
+            v_loss.backward()
+            # Update policy and value function networks parameters
+            self.actor_optim.step()
+            self.critic_optim.step()
+            # Check if testing is needed
+            if test_freq > 0 and update % test_freq == 0:
+                # Test the agent
+                mean_reward = self.test(num_episodes, greedy)
+                # Store testing data
+                self.testing_data.append((update, mean_reward))
+                # Print testing data
+                print(f"Episode {update}: Mean reward: {mean_reward:.2f}")
+                        
+    
+    def test(self, num_episodes, greedy = False):
+        '''
+        Implements testing loop for the agent. By default stochastic policy is used, but
+        when `greedy` is set to True, then action is selected greedily.
         
         Args:
             num_episodes (int): The number of testing episodes.
+            greedy (bool): Whether to select the action greedily or not.
         '''
-        # Put model in evaluation mode
-        self.online_model.eval()
+        # Put actor in evaluation mode
+        self.actor.eval()
         # Initialize rewards list
         episode_rewards = []
         # Switch off gradient tracking
@@ -863,8 +897,10 @@ class REINFORCE:
                 done = False
                 # Loop until episode is done
                 while not done:
+                    # Convert state to tensor
+                    obs = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
                     # Select action
-                    action = self.select_greedy_action(state)
+                    action = self.sample_action(obs, greedy)
                     # Take action in environment and collect experience
                     next_state, reward, terminated, truncated, _ = self.env.step(action)
                     # Store reward
@@ -874,11 +910,11 @@ class REINFORCE:
                     # Update state
                     state = next_state if not done else self.env.reset()[0]
         # Put model back into training mode
-        self.online_model.train()
+        self.actor.train()
         # Return average reward over all episodes
         return sum(episode_rewards) / num_episodes
     
-  def save_model(self, path):
+    def save_model(self, path):
         '''
         Saves the model to the specified path.
         
@@ -888,7 +924,7 @@ class REINFORCE:
         torch.save(self.actor, path)
         print(f"Model saved to {path}.")
 
-  def plot_performance_graph(self, path):
+    def plot_performance_graph(self, path):
         '''
         Plots and saves the performance graph obtained during training, i.e. it plots
         the average reward obtained during testing episodes. The graph is saved to the specified path.
@@ -930,8 +966,40 @@ target_model = DuellingFCN(input_dim = 4, output_dim = 2, hidden_dims = (32, 64)
 #     tau = 0.9
 # )
 
+logprobs = []
+entropies = []
 
 states = torch.tensor([[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]], dtype=torch.float32)
+state1 = torch.tensor([[1.0, 2.0, 3.0, 4.0]], dtype=torch.float32)
+state2 = torch.tensor([[5.0, 6.0, 7.0, 8.0]], dtype=torch.float32)
+
+logits1 = online_model(state1)
+# print(logits)
+dist1 = torch.distributions.Categorical(logits = logits1)
+action1 = dist1.sample()
+# print(action)
+logprob1 = dist1.log_prob(action1)
+# print(logprob)
+entropy1 = dist1.entropy()
+# print(entropy1)
+logprobs.append(logprob1)
+entropies.append(entropy1)
+
+logits2 = online_model(state2)
+# print(logits)
+dist2 = torch.distributions.Categorical(logits = logits2)
+action2 = dist2.sample()
+# print(action)
+logprob2 = dist2.log_prob(action2)
+# print(logprob)
+entropy2 = dist2.entropy()
+# print(entropy2)
+logprobs.append(logprob2)
+entropies.append(entropy2)
+
+# print(f"Logprobs: {logprobs}")
+# print(f"Entropies: {entropies}")
+# print(f"Logprobs concatenated: {torch.cat(logprobs)}")
 # dones = torch.tensor([[0.0], [1.0]], dtype=torch.float32).squeeze()
 # rewards = torch.tensor([[1.0], [2.0]], dtype=torch.float32).squeeze()
 # actions = torch.tensor([[0], [1]], dtype=torch.long).squeeze()
