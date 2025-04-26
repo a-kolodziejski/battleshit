@@ -5,6 +5,7 @@ import torch.nn as nn
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import math
+import numpy as np
 
 
 #####################################################################################
@@ -785,10 +786,10 @@ class REINFORCE:
         weights_without_baseline = []
         # List for collecting baselines (value function from critic)
         baselines = []
+        # List for collecting baselines without gradients
+        baselines_without_grad = []
         # Log-Probabilities of taking specific actions
         logpas = []
-        # To keep number of steps in each episode
-        lengths = []
         # Rewards collected during episode
         rewards = []
 
@@ -814,29 +815,56 @@ class REINFORCE:
                 rew.append(reward)
                 logpas.append(logpa)
                 baselines.append(baseline)
+                baselines_without_grad.append(baseline.detach())
                 entropies.append(entropy)
                 # State update
                 state = next_state
                 # If episode is done
                 if done:
-                    # Append rew to rewards list
-                    rewards += rew
                     # Calculate # of moves in this episode
                     num_of_moves = len(rew)
-                    # Instantiate rewards to go array
-                    rewards_to_go = np.zeros_like(rew)
-                    # Save trajectory length
-                    lengths.append(num_of_moves)
-                # Calculate rewards to go
-                for i in reversed(range(num_of_moves)):
-                    rewards_to_go[i] = rewards[i] + (rewards_to_go[i+1] if i+1 < num_of_moves else 0)
-                # Add rewards to go
-                weights_without_baseline += list(rewards_to_go)
-            # Calculate final weights i.e. rewards_to_go - baseline
-            weights = torch.tensor(weights_without_baseline, dtype = torch.float32) - torch.tensor(baselines, dtype = torch.float32)
+                    # Append discounted rewards to rewards list
+                    rewards += rew
+                    # Cast rew to array
+                    rew = np.array(rew)
+                    # Create array of discounted rewards
+                    discounts = np.logspace(0, num_of_moves, num=num_of_moves, base=self.gamma, endpoint=False)
+                    # Calculate discounted rewards to go
+                    discounted_rewards_to_go = np.array([np.sum(rew[t:] * discounts[:num_of_moves-t]) for t in range(num_of_moves)])
+                # Add discounted rewards to weights list
+                weights_without_baseline += list(discounted_rewards_to_go)
+            # Calculate final weights i.e. rewards_to_go - baseline without gradients
+            weights = torch.tensor(weights_without_baseline, dtype = torch.float32) - torch.tensor(baselines_without_grad, dtype = torch.float32)
         # Return all quantities gathered during this epsiode
+        logpas = torch.cat(logpas)
+        entropies = torch.cat(entropies)
+        baselines = torch.cat(baselines)
+        rewards = torch.tensor(rewards, dtype = torch.float32)
         return logpas, entropies, weights, baselines, rewards
 
+    def calculate_loss(self, logpas, entropies, weights, baselines, rewards):
+        '''
+        Calculates policy and value function loss. Policy loss
+        is calculated as in policy gradient theorem with rewards to go
+        and baselines. Value function loss is calculated as the mean
+        squared difference between baselines and rewards obtained during epsiode
+
+        Args:
+            logpas (torch.Tensor): log-probabilities of actions
+            entropies (torch.Tensor): entropies of action distributions
+            weights (torch.Tensor): rewards_to_go - baseline
+            baselines (torch.Tensor): baselines, i.e. V function values
+            rewards (torch.Tensor): rewards accumulated during episode
+
+        Returns:
+            policy_loss, v_loss
+    '''
+        # Calculate policy loss using policy gradient theorem with rewards to go and baselines
+        policy_loss = -torch.mean(logpas * weights) - self.beta * torch.mean(entropies)
+        # Calculate value function loss as mean squared difference between baselines and rewards
+        v_loss = torch.mean((rewards - baselines)**2)
+
+        return policy_loss, v_loss
     
     def train(self, num_trajectories, num_updates, test_freq, num_episodes, greedy = False):
         '''
@@ -1024,3 +1052,4 @@ entropies.append(entropy2)
 
 # t3 = torch.cat(tens)
 # print(t3)
+
