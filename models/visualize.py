@@ -34,7 +34,7 @@ def visualize(env, model_path, num_animations):
                 # Check if episode is done
                 done = terminated or truncated
                 # Slow down animation
-                time.sleep(0.1)
+                time.sleep(0.05)
                 # Update state
                 state = next_state if not done else env.reset()[0]
 
@@ -43,4 +43,4 @@ if __name__ == "__main__":
     # Load environment
     env = gym.make("LunarLander-v3", render_mode = 'human')
     # Run visualization
-    visualize(env, "models/saved_models/experiment_5.pt", 5)
+    visualize(env, "models/saved_models/experiment_9.pt", 1)
