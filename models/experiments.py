@@ -36,6 +36,12 @@ if __name__ == "__main__":
             model_hidden_dims = config_file[exp]['model'].get("hidden_dims", None)
             model_hidden_activation = config_file[exp]['model'].get("hidden_activation", None)
             model_output_activation = config_file[exp]['model'].get("output_activation", None)
+            actor_input_dim = config_file[exp]['model'].get("actor_input_dim", None)
+            actor_output_dim = config_file[exp]['model'].get("actor_output_dim", None)
+            actor_hidden_dims = config_file[exp]['model'].get("actor_hidden_dims", None)
+            critic_input_dim = config_file[exp]['model'].get("critic_input_dim", None)
+            critic_output_dim = config_file[exp]['model'].get("critic_output_dim", None)
+            critic_hidden_dims = config_file[exp]['model'].get("critic_hidden_dims", None)
             # Buffer-specific parameters
             buffer_kind = config_file[exp]['buffer'].get("buffer_kind", None)
             buffer_size = config_file[exp]['buffer'].get("buffer_size", None)
@@ -63,6 +69,10 @@ if __name__ == "__main__":
             agent_num_samples = config_file[exp]['agent'].get('num_samples', None)
             agent_num_trials = config_file[exp]['agent'].get('num_trials', None)
             agent_test_freq = config_file[exp]['agent'].get('test_freq', None)
+            agent_beta = config_file[exp]['agent'].get('beta', None)
+            agent_greedy = config_file[exp]['agent'].get('greedy', None)
+            agent_num_trajectories = config_file[exp]['agent'].get('num_trajectories', None)
+            agent_numupdates = config_file[exp]['agent'].get('num_updates', None)
         
             # Set up appropriate objects
             # Environment
@@ -71,12 +81,6 @@ if __name__ == "__main__":
             else:
                 env = globals()[env_name]()
         
-            # Neural Network (model)
-            model = globals()[model_kind](model_input_dim,
-                                        model_output_dim,
-                                        model_hidden_dims,
-                                        globals()[model_hidden_activation](),
-                                        globals()[model_output_activation]())
             # Buffer
             if buffer_kind == "SimpleBuffer":
                 buffer = globals()[buffer_kind](buffer_size, buffer_min_capacity)
@@ -85,6 +89,13 @@ if __name__ == "__main__":
             
             # Agent
             if agent_kind == "preDQNAgentNoBatch":
+                # Neural Network (model)
+                model = globals()[model_kind](model_input_dim,
+                                        model_output_dim,
+                                        model_hidden_dims,
+                                        globals()[model_hidden_activation](),
+                                        globals()[model_output_activation]())
+                # Initialize agent
                 agent = globals()[agent_kind](model,
                                         env,
                                         agent_bootstrap,
@@ -103,6 +114,12 @@ if __name__ == "__main__":
                     agent.plot_performance_graph(save_graph_path + f"{exp}.png")
             
             elif agent_kind == "DQNAgent" or agent_kind == "DoubleDQNAgent" or agent_kind == "PERDoubleDQNAgent":
+                # Initialize online model for DQN agent
+                model = globals()[model_kind](model_input_dim,
+                                        model_output_dim,
+                                        model_hidden_dims,
+                                        globals()[model_hidden_activation](),
+                                        globals()[model_output_activation]())
                 # Create target model for DQN agent
                 target_model = globals()[model_kind](model_input_dim,
                                         model_output_dim,
@@ -117,6 +134,35 @@ if __name__ == "__main__":
                 # Train agent
                 agent.train(agent_num_steps, agent_batch_size, agent_steps_in_env,  agent_update_freq, agent_test_freq, agent_num_trials)
                 
+                # Save model
+                if save_model:
+                    agent.save_model(save_model_path + f"{exp}.pt")
+                # Plot performance graph during training
+                if save_graph:
+                    if not os.path.exists(save_graph_path):
+                        os.makedirs(save_graph_path)
+                    agent.plot_performance_graph(save_graph_path + f"{exp}.png")
+            
+            elif agent_kind == "REINFORCE":
+                # Initialize actor and critic
+                actor = globals()[model_kind](actor_input_dim,
+                                        actor_output_dim,
+                                        actor_hidden_dims,
+                                        globals()[model_hidden_activation](),
+                                        globals()[model_output_activation]())
+                critic = globals()[model_kind](critic_input_dim,
+                                        critic_output_dim,
+                                        critic_hidden_dims,
+                                        globals()[model_hidden_activation](),
+                                        globals()[model_output_activation]())
+                # Initialize optimizers for actor and critic
+                actor_optimizer = globals()[agent_optimizer](actor.parameters(), agent_learning_rate)
+                critic_optimizer = globals()[agent_optimizer](critic.parameters(), agent_learning_rate)
+                # Initialize REINFORCE agent
+                agent = globals()[agent_kind](actor, critic, env, agent_gamma,
+                                              actor_optimizer, critic_optimizer, agent_beta)
+                # Train agent
+                agent.train(agent_num_trajectories, agent_numupdates, agent_test_freq, agent_num_trials, agent_greedy)
                 # Save model
                 if save_model:
                     agent.save_model(save_model_path + f"{exp}.pt")

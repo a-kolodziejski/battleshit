@@ -831,8 +831,8 @@ class REINFORCE:
                     discounts = np.logspace(0, num_of_moves, num=num_of_moves, base=self.gamma, endpoint=False)
                     # Calculate discounted rewards to go
                     discounted_rewards_to_go = np.array([np.sum(rew[t:] * discounts[:num_of_moves-t]) for t in range(num_of_moves)])
-                # Add discounted rewards to weights list
-                weights_without_baseline += list(discounted_rewards_to_go)
+                    # Add discounted rewards to weights list
+                    weights_without_baseline += list(discounted_rewards_to_go)
             # Calculate final weights i.e. rewards_to_go - baseline without gradients
             weights = torch.tensor(weights_without_baseline, dtype = torch.float32) - torch.tensor(baselines_without_grad, dtype = torch.float32)
         # Return all quantities gathered during this epsiode
@@ -866,7 +866,7 @@ class REINFORCE:
 
         return policy_loss, v_loss
     
-    def train(self, num_trajectories, num_updates, test_freq, num_episodes, greedy = False):
+    def train(self, num_trajectories, num_updates, test_freq, num_trials, greedy = False):
         '''
         Implements training loop of REINFORCE agent.
 
@@ -875,7 +875,7 @@ class REINFORCE:
                                 to collect before updating actor and critic
             num_updates (int): how many times policy and V network are to be updated
             test_freq (int): how often to test the agent during training
-            num_episodes (int): number of episodes to test the agent
+            num_trials (int): number of episodes to test the agent
             greedy (bool): whether to select the action greedily or not.
         '''
         # Main loop
@@ -896,20 +896,20 @@ class REINFORCE:
             # Check if testing is needed
             if test_freq > 0 and update % test_freq == 0:
                 # Test the agent
-                mean_reward = self.test(num_episodes, greedy)
+                mean_reward = self.test(num_trials, greedy)
                 # Store testing data
                 self.testing_data.append((update, mean_reward))
                 # Print testing data
                 print(f"Episode {update}: Mean reward: {mean_reward:.2f}")
                         
     
-    def test(self, num_episodes, greedy = False):
+    def test(self, num_trials, greedy = False):
         '''
         Implements testing loop for the agent. By default stochastic policy is used, but
         when `greedy` is set to True, then action is selected greedily.
         
         Args:
-            num_episodes (int): The number of testing episodes.
+            num_trials (int): The number of testing episodes.
             greedy (bool): Whether to select the action greedily or not.
         '''
         # Put actor in evaluation mode
@@ -919,7 +919,7 @@ class REINFORCE:
         # Switch off gradient tracking
         with torch.no_grad():
             # Loop over episodes
-            for _ in range(num_episodes):
+            for _ in range(num_trials):
                 # Reset environment
                 state, _ = self.env.reset()
                 done = False
@@ -940,7 +940,7 @@ class REINFORCE:
         # Put model back into training mode
         self.actor.train()
         # Return average reward over all episodes
-        return sum(episode_rewards) / num_episodes
+        return sum(episode_rewards) / num_trials
     
     def save_model(self, path):
         '''

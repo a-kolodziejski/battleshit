@@ -238,7 +238,7 @@ num_trials = 10
 ############################################################################
 [experiment_7]
 name = "Experiment_7"
-active = true
+active = false
 environment_type = "gym" # gym or custom. If custom, it means one of Battleship environments
 environment = "LunarLander-v3"
 save_model = false
@@ -279,4 +279,40 @@ batch_size = 32
 steps_in_env = 5
 update_freq = 10
 test_freq = 50
+num_trials = 10
+
+############################################################################
+[experiment_8]
+name = "Experiment_8"
+active = true
+environment_type = "gym" 
+environment = "CartPole-v1"
+save_model = false
+save_model_path = "models/saved_models/"
+save_graph = true
+save_graph_path = "models/saved_graphs/"
+
+[experiment_8.model]
+model_kind = "SimpleFCN"
+actor_input_dim = 4
+actor_output_dim = 2
+critic_input_dim = 4
+critic_output_dim = 1
+actor_hidden_dims = [512, 128]
+critic_hidden_dims = [512, 128]
+hidden_activation = "ReLU"
+output_activation = "Identity"
+
+[experiment_8.buffer] # No buffer this time
+
+[experiment_8.agent]
+agent_kind = "REINFORCE"
+gamma = 1.0
+optimizer = "Adam"
+learning_rate = 0.001
+beta = 0
+greedy = false
+num_trajectories = 10 # Number of trajectories to average
+num_updates = 150
+test_freq = 10
 num_trials = 10
