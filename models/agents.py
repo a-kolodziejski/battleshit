@@ -781,6 +781,90 @@ class REINFORCE:
             rewards (list): List of rewards collected during the episode.
         '''
         # Initialize empty lists for storing data
+        entropies_all = []    
+        # Weights that multiply log-probs in policy gradient theorem
+        weights_all = []
+        # List for collecting baselines (value function from critic)
+        baselines_all = []
+        # Log-Probabilities of taking specific actions
+        logpas_all = []
+        # Rewards collected during episode
+        rewards_all = []
+
+        for _ in range(num_trajectories):
+            # Initialize empty lists for storing data for this trajectory
+            entropies = []
+            logpas = []
+            baselines = []
+            rewards = []
+            # Set done flag to False
+            done = False
+            # Reset environment
+            state, _ = self.env.reset()
+            # Loop until episode is done
+            while not done:
+                # Convert state to tensor
+                obs = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
+                # Let critic value current state
+                baseline = self.critic(obs).squeeze(-1)
+                # Select action along with its log-prob and entropy
+                action, logpa, entropy = self.step_in_env(obs)
+                # Perform action
+                next_state, reward, terminated, truncated, _ = self.env.step(action)
+                done = terminated or truncated
+                # Save all data in appropriate lists
+                rewards.append(reward)
+                logpas.append(logpa)
+                baselines.append(baseline)
+                entropies.append(entropy)
+                # State update
+                state = next_state
+            # If episode is done
+            # Calculate rewards to go and baselines
+            rewards_np = np.array(rewards, dtype = np.float32)
+            discounts = self.gamma ** np.arange(len(rewards_np))
+            rewards_to_go = np.array([np.sum(rewards_np[t:] * discounts[:len(rewards_np)-t]) for t in range(len(rewards_np))])
+            # Calculate weights, first cast rewards_to_go to tensor
+            rewards_to_go_tensor = torch.tensor(rewards_to_go, dtype = torch.float32)
+            # Calculate baselines without gradients
+            baselines_tensor = torch.cat(baselines).detach()
+            # Calculate weights
+            weights = rewards_to_go_tensor - baselines_tensor
+            
+            # Concatenate all data for this episode with all data from previous episodes
+            entropies_all.append(torch.cat(entropies))
+            logpas_all.append(torch.cat(logpas))
+            weights_all.append(weights)
+            baselines_all.append(torch.cat(baselines))
+            rewards_all.append(torch.tensor(rewards, dtype = torch.float32))
+                    
+        # Concatenate all data from all episodes
+        logpas = torch.cat(logpas_all)
+        entropies = torch.cat(entropies_all)
+        weights = torch.cat(weights_all)
+        baselines = torch.cat(baselines_all)
+        rewards = torch.cat(rewards_all)
+        
+        return logpas, entropies, weights, baselines, rewards
+    
+    # Alternative implementation of _collect_trajectory function
+    def _collect_trajectory2(self, num_trajectories):
+        '''
+        Collects num_trajectories of experiences from the environment.
+        The experiences are stored in the form of log probabilities, entropies,
+        weights, baselines, rewards and lengths of the trajectories.
+      
+        Args:
+            num_trajectories (int): The number of trajectories to collect.
+    
+        Returns:
+            logpas (list): List of log probabilities of actions taken.
+            entropies (list): List of entropies of the action distributions.
+            weights (list): List of weights for the policy gradient update.
+            baselines (list): List of baselines (value function estimates).
+            rewards (list): List of rewards collected during the episode.
+        '''
+        # Initialize empty lists for storing data
         entropies = []    
         # Weights that multiply log-probs in policy gradient theorem
         weights_without_baseline = []
@@ -1025,6 +1109,9 @@ entropy2 = dist2.entropy()
 logprobs.append(logprob2)
 entropies.append(entropy2)
 
+x1=torch.tensor([1.0, 2.0, 3.0, 4.0], dtype=torch.float32, requires_grad=True)
+x2=torch.tensor([5.0, 6.0], dtype=torch.float32, requires_grad=True)
+
 # print(f"Logprobs: {logprobs}")
 # print(f"Entropies: {entropies}")
 # print(f"Logprobs concatenated: {torch.cat(logprobs)}")
@@ -1052,4 +1139,5 @@ entropies.append(entropy2)
 
 # t3 = torch.cat(tens)
 # print(t3)
+
 

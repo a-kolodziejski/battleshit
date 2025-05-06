@@ -320,7 +320,7 @@ num_trials = 10
 ############################################################################
 [experiment_9]
 name = "Experiment_9"
-active = true
+active = false
 environment_type = "gym" 
 environment = "LunarLander-v3"
 save_model = true
@@ -344,6 +344,78 @@ output_activation = "Identity"
 [experiment_9.agent]
 agent_kind = "REINFORCE"
 gamma = 0.9
+optimizer = "Adam"
+learning_rate = 0.001
+beta = 0
+greedy = false
+num_trajectories = 10 # Number of trajectories to average
+num_updates = 150
+test_freq = 10
+num_trials = 10
+
+############################################################################
+[experiment_10]
+name = "Experiment_10"
+active = false
+environment_type = "gym" 
+environment = "LunarLander-v3"
+save_model = false
+save_model_path = "models/saved_models/"
+save_graph = false
+save_graph_path = "models/saved_graphs/"
+
+[experiment_10.model]
+model_kind = "SimpleFCN"
+actor_input_dim = 8
+actor_output_dim = 4
+critic_input_dim = 8
+critic_output_dim = 1
+actor_hidden_dims = [512, 128]
+critic_hidden_dims = [512, 128]
+hidden_activation = "ReLU"
+output_activation = "Identity"
+
+[experiment_10.buffer] # No buffer this time
+
+[experiment_10.agent]
+agent_kind = "REINFORCE"
+gamma = 0.99
+optimizer = "Adam"
+learning_rate = 0.001
+beta = 0
+greedy = false
+num_trajectories = 10 # Number of trajectories to average
+num_updates = 150
+test_freq = 10
+num_trials = 10
+
+############################################################################
+[experiment_11]
+name = "Experiment_11"
+active = true
+environment_type = "gym" 
+environment = "CartPole-v1"
+save_model = false
+save_model_path = "models/saved_models/"
+save_graph = false
+save_graph_path = "models/saved_graphs/"
+
+[experiment_11.model]
+model_kind = "SimpleFCN"
+actor_input_dim = 4
+actor_output_dim = 2
+critic_input_dim = 4
+critic_output_dim = 1
+actor_hidden_dims = [512, 128]
+critic_hidden_dims = [512, 128]
+hidden_activation = "ReLU"
+output_activation = "Identity"
+
+[experiment_11.buffer] # No buffer this time
+
+[experiment_11.agent]
+agent_kind = "REINFORCE"
+gamma = 1.0
 optimizer = "Adam"
 learning_rate = 0.001
 beta = 0
